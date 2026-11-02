@@ -1,0 +1,31 @@
+package com.evenfall.app.data.db.entity
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(
+    tableName = "books",
+    indices = [
+        Index(value = ["folderIdentifier"], unique = true),
+        Index(value = ["lastPlayedTimestamp"])
+    ]
+)
+data class BookEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val title: String,
+    val author: String,
+    val coverUri: String? = null,
+    val folderUri: String,
+    val folderIdentifier: String,
+    val totalDurationMs: Long,
+    val currentPositionMs: Long = 0L,
+    val currentChapterIndex: Int = 0,
+    val chapterPositionMs: Long = 0L,
+    val playbackSpeed: Float = 1.0f,
+    val isFinished: Boolean = false,
+    val fileCount: Int = 1,
+    val dateAdded: Long = System.currentTimeMillis(),
+    val lastPlayedTimestamp: Long = 0L
+)
