@@ -36,7 +36,15 @@ data class SettingsUiState(
     val silenceSkippingEnabled: Boolean = false,
     val defaultSpeed: Float = 1.0f,
     val libraryFolders: Set<String> = emptySet(),
-    val backupStatusMessage: String? = null
+    val backupStatusMessage: String? = null,
+    val compactPlayer: Boolean = true
+)
+
+private data class ListeningPrefs(
+    val skip: Int,
+    val autoRewind: Boolean,
+    val shake: Boolean,
+    val compact: Boolean
 )
 
 @HiltViewModel
@@ -58,21 +66,29 @@ class SettingsViewModel @Inject constructor(
         Triple(theme, black, scheme)
     }
 
-    val uiState: StateFlow<SettingsUiState> = combine(
-        appearanceFlow,
+    private val listeningFlow = combine(
         preferencesManager.skipAmountSeconds,
         preferencesManager.autoRewindEnabled,
         preferencesManager.shakeToExtendEnabled,
+        preferencesManager.compactPlayer
+    ) { skip, autoRewind, shake, compact ->
+        ListeningPrefs(skip, autoRewind, shake, compact)
+    }
+
+    val uiState: StateFlow<SettingsUiState> = combine(
+        appearanceFlow,
+        listeningFlow,
         preferencesManager.libraryFolders
-    ) { appearance, skip, autoRewind, shake, folders ->
+    ) { appearance, listening, folders ->
         val (theme, black, scheme) = appearance
         SettingsUiState(
             themeMode = theme,
             pureBlack = black,
             colorSchemeOption = scheme,
-            skipAmountSeconds = skip,
-            autoRewindEnabled = autoRewind,
-            shakeToExtendEnabled = shake,
+            skipAmountSeconds = listening.skip,
+            autoRewindEnabled = listening.autoRewind,
+            shakeToExtendEnabled = listening.shake,
+            compactPlayer = listening.compact,
             libraryFolders = folders
         )
     }.stateIn(
@@ -105,6 +121,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setShakeToExtendEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setShakeToExtendEnabled(enabled) }
+    }
+
+    fun setCompactPlayer(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setCompactPlayer(enabled) }
     }
 
     fun rescanLibrary() {
