@@ -11,19 +11,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,8 +58,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.BookCoverArt
-import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.components.SparkleDecorations
+import com.evenfall.app.ui.theme.CookieShape
+import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +72,6 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var isSearchActive by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     Box(
@@ -77,17 +79,17 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
-        // Floating sparkles decoration
         SparkleDecorations()
 
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                // Search Bar and Settings Action (matching Image 1)
+                // Top Search Bar with status bar padding
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
@@ -95,7 +97,7 @@ fun HomeScreen(
                             .weight(1f)
                             .height(52.dp),
                         shape = RoundedCornerShape(26.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
                     ) {
                         Row(
                             modifier = Modifier
@@ -148,18 +150,21 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(horizontal = 20.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                // Greeting Header (matching Image 1)
+                // Greeting Header (in Serif font matching Image 1)
                 item {
-                    Column(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
+                    Column(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
                         Text(
                             text = uiState.greeting,
-                            style = MaterialTheme.typography.displayMedium,
+                            fontFamily = SerifFont,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         val inProgressCount = (if (uiState.heroBook != null) 1 else 0) + uiState.currentBooks.size
                         Text(
                             text = "$inProgressCount books in progress",
@@ -184,11 +189,13 @@ fun HomeScreen(
                     item {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
                         ) {
                             Text(
                                 text = "Current",
-                                style = MaterialTheme.typography.headlineSmall,
+                                fontFamily = SerifFont,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -276,14 +283,15 @@ fun HomeScreen(
                     }
                 }
 
-                // "Not started" Section (if any)
+                // "Not started" Section
                 if (uiState.notStartedBooks.isNotEmpty()) {
                     item {
                         Text(
                             text = "Not started",
+                            fontFamily = SerifFont,
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 12.dp)
+                            modifier = Modifier.padding(top = 10.dp)
                         )
                     }
                     items(uiState.notStartedBooks) { book ->
@@ -294,7 +302,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Add Folder Banner if library is small or empty
+                // Add Folder Banner
                 item {
                     Surface(
                         shape = RoundedCornerShape(20.dp),
@@ -330,7 +338,7 @@ fun HomeScreen(
                 }
 
                 item {
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -370,13 +378,12 @@ fun ContinueListeningHeroCard(
         ) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Cover Art
                     BookCoverArt(
                         title = book.title,
                         author = book.author,
                         coverPath = book.coverUri,
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.size(86.dp)
+                        modifier = Modifier.size(84.dp)
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -386,12 +393,12 @@ fun ContinueListeningHeroCard(
                             text = "Continue listening",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E3A8A).copy(alpha = 0.8f)
+                            color = Color(0xFF1E3A8A).copy(alpha = 0.85f)
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = book.title,
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = SerifFont,
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A),
@@ -401,6 +408,7 @@ fun ContinueListeningHeroCard(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = book.author,
+                            fontFamily = SerifFont,
                             fontSize = 13.sp,
                             color = Color(0xFF1E293B).copy(alpha = 0.8f),
                             maxLines = 1,
@@ -447,7 +455,7 @@ fun ContinueListeningHeroCard(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Cookie-shaped play button (matching Image 1)
+                    // Scalloped Cookie Play Button
                     Box(
                         modifier = Modifier
                             .size(52.dp)
@@ -503,7 +511,7 @@ fun CurrentBookRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = book.title,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = SerifFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -513,6 +521,7 @@ fun CurrentBookRow(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = book.author,
+                    fontFamily = SerifFont,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

@@ -2,11 +2,19 @@ package com.evenfall.app.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.evenfall.app.R
 
-val SerifFont = FontFamily.Serif
+val SerifFont = FontFamily(
+    Font(R.font.serif_regular, FontWeight.Normal),
+    Font(R.font.serif_medium, FontWeight.Medium),
+    Font(R.font.serif_bold, FontWeight.SemiBold),
+    Font(R.font.serif_bold, FontWeight.Bold)
+)
+
 val SansFont = FontFamily.Default
 
 val EvenfallTypography = Typography(

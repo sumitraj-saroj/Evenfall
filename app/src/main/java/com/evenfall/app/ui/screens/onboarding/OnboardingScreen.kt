@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -59,6 +61,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.data.datastore.ScanMode
 import com.evenfall.app.data.scanner.ScannedBookPreview
 import com.evenfall.app.ui.theme.CookieShape
+import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.components.WavyProgressLine
 import com.evenfall.app.util.TimeUtils
@@ -103,13 +106,15 @@ fun OnboardingScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    modifier = Modifier.statusBarsPadding()
                 )
             },
             bottomBar = {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -391,7 +396,7 @@ fun OnboardingBookItem(
                     color = fg,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = SerifFont
                 )
             }
 
@@ -401,7 +406,7 @@ fun OnboardingBookItem(
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = SerifFont,
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1,

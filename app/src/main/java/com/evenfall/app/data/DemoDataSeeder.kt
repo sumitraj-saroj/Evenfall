@@ -26,7 +26,10 @@ class DemoDataSeeder @Inject constructor(
         val existing = bookDao.getBookByFolderIdentifier("demo_echoes_of_tomorrow")
         if (existing != null) return@withContext
 
-        // 1. Echoes of Tomorrow (Daniel Hartwell)
+        val now = System.currentTimeMillis()
+        val oneDay = 24 * 3600 * 1000L
+
+        // 1. Echoes of Tomorrow (Daniel Hartwell) - PRIMARY HERO BOOK
         val echoesTotalMs = (14 * 3600 + 27 * 60) * 1000L
         val echoesCurrentPosMs = (echoesTotalMs * 0.72).toLong() // 72%
         val echoesId = bookDao.insert(
@@ -39,10 +42,10 @@ class DemoDataSeeder @Inject constructor(
                 totalDurationMs = echoesTotalMs,
                 currentPositionMs = echoesCurrentPosMs,
                 currentChapterIndex = 11, // Chapter 12 of 24
-                chapterPositionMs = (19 * 60 + 23) * 1000L, // 19:23
+                chapterPositionMs = (34 * 60 + 18) * 1000L, // 34:18
                 playbackSpeed = 1.0f,
                 fileCount = 24,
-                lastPlayedTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 // 1 hour ago
+                lastPlayedTimestamp = now // Most recently played -> Hero Card
             )
         )
 
@@ -90,8 +93,6 @@ class DemoDataSeeder @Inject constructor(
         }
 
         // Echoes Bookmarks (matching Image 4)
-        val now = System.currentTimeMillis()
-        val oneDay = 24 * 3600 * 1000L
         bookmarkDao.insert(
             BookmarkEntity(
                 bookId = echoesId,
@@ -239,7 +240,7 @@ class DemoDataSeeder @Inject constructor(
                 chapterPositionMs = (14 * 60) * 1000L,
                 playbackSpeed = 1.0f,
                 fileCount = 16,
-                lastPlayedTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 4
+                lastPlayedTimestamp = now - 1000 * 60 * 60 * 2
             )
         )
         val bookshopAvg = bookshopTotalMs / 16
@@ -257,6 +258,51 @@ class DemoDataSeeder @Inject constructor(
                 )
             )
         }
+        bookmarkDao.insert(
+            BookmarkEntity(
+                bookId = bookshopId,
+                chapterIndex = 2,
+                chapterTitle = "Chapter 3",
+                positionMs = (10 * 60) * 1000L,
+                bookProgressFraction = 0.20f,
+                title = "The Old Oak Desk",
+                note = "Discovery of the hidden letter behind drawer three",
+                type = BookmarkType.FAVORITE,
+                timestamp = now - (oneDay * 5)
+            )
+        )
+        bookmarkDao.insert(
+            BookmarkEntity(
+                bookId = bookshopId,
+                chapterIndex = 6,
+                chapterTitle = "Chapter 7",
+                positionMs = (14 * 60) * 1000L,
+                bookProgressFraction = 0.41f,
+                title = "A cup of Earl Grey",
+                note = "Rainy afternoon conversation",
+                type = BookmarkType.NOTE,
+                timestamp = now - (oneDay * 1)
+            )
+        )
+        historyDao.insert(
+            HistoryEntity(
+                bookId = bookshopId,
+                eventType = HistoryEventType.PLAYED,
+                timestamp = now - (1000 * 60 * 120),
+                positionMs = (14 * 60) * 1000L,
+                chapterIndex = 6,
+                outputDevice = "Headphones"
+            )
+        )
+        historyDao.insert(
+            HistoryEntity(
+                bookId = bookshopId,
+                eventType = HistoryEventType.PAUSED,
+                timestamp = now - (1000 * 60 * 110),
+                positionMs = (14 * 60 + 41) * 1000L,
+                chapterIndex = 6
+            )
+        )
 
         // 3. Beyond the Horizon (Alexander Reeves)
         val horizonTotalMs = (11 * 3600 + 5 * 60) * 1000L
@@ -275,7 +321,7 @@ class DemoDataSeeder @Inject constructor(
                 chapterPositionMs = (17 * 60 + 35) * 1000L, // 17:35
                 playbackSpeed = 1.0f,
                 fileCount = 20,
-                lastPlayedTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 12
+                lastPlayedTimestamp = now - 1000 * 60 * 60 * 5
             )
         )
         val horizonAvg = horizonTotalMs / 20
@@ -294,5 +340,27 @@ class DemoDataSeeder @Inject constructor(
                 )
             )
         }
+        bookmarkDao.insert(
+            BookmarkEntity(
+                bookId = horizonId,
+                chapterIndex = 7,
+                chapterTitle = "The Compass Turns",
+                positionMs = (6 * 60 + 43) * 1000L,
+                bookProgressFraction = 0.38f,
+                title = "The compass reading",
+                note = "Needle swinging toward the ridge",
+                type = BookmarkType.FAVORITE,
+                timestamp = now - (oneDay * 2)
+            )
+        )
+        historyDao.insert(
+            HistoryEntity(
+                bookId = horizonId,
+                eventType = HistoryEventType.PLAYED,
+                timestamp = now - (1000 * 60 * 300),
+                positionMs = (17 * 60 + 35) * 1000L,
+                chapterIndex = 7
+            )
+        )
     }
 }

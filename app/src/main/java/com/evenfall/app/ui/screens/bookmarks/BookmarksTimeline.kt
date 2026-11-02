@@ -1,31 +1,23 @@
 package com.evenfall.app.ui.screens.bookmarks
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Note
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evenfall.app.data.db.entity.BookmarkEntity
@@ -42,6 +34,10 @@ fun BookmarksTimeline(
     currentPositionMs: Long,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val activeBarColor = if (isDark) Color(0xFF60A5FA) else Color(0xFF1E4D7E)
+    val inactiveBarColor = if (isDark) Color(0xFF253C5D) else Color(0xFF1E4D7E).copy(alpha = 0.25f)
+
     val progressFraction = if (totalDurationMs > 0) {
         (currentPositionMs.toFloat() / totalDurationMs).coerceIn(0f, 1f)
     } else 0f
@@ -70,7 +66,7 @@ fun BookmarksTimeline(
                 when {
                     i < currentSegment -> {
                         drawRoundRect(
-                            color = Color(0xFF1E4D7E),
+                            color = activeBarColor,
                             topLeft = Offset(startX, barY),
                             size = Size(segmentWidth, barH),
                             cornerRadius = corner
@@ -78,7 +74,7 @@ fun BookmarksTimeline(
                     }
                     i == currentSegment -> {
                         drawRoundRect(
-                            color = Color(0xFF1E4D7E).copy(alpha = 0.25f),
+                            color = inactiveBarColor,
                             topLeft = Offset(startX, barY),
                             size = Size(segmentWidth, barH),
                             cornerRadius = corner
@@ -86,7 +82,7 @@ fun BookmarksTimeline(
                         val activeW = segmentWidth * progressWithinCurrent.coerceIn(0f, 1f)
                         if (activeW > 0f) {
                             drawRoundRect(
-                                color = Color(0xFF1E4D7E),
+                                color = activeBarColor,
                                 topLeft = Offset(startX, barY),
                                 size = Size(activeW, barH),
                                 cornerRadius = corner
@@ -95,7 +91,7 @@ fun BookmarksTimeline(
                     }
                     else -> {
                         drawRoundRect(
-                            color = Color(0xFF1E4D7E).copy(alpha = 0.25f),
+                            color = inactiveBarColor,
                             topLeft = Offset(startX, barY),
                             size = Size(segmentWidth, barH),
                             cornerRadius = corner

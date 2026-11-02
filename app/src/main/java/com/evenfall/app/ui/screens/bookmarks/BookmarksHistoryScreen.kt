@@ -3,6 +3,7 @@ package com.evenfall.app.ui.screens.bookmarks
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,8 +14,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,20 +30,15 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -48,7 +46,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,8 +66,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,8 +78,9 @@ import com.evenfall.app.data.db.entity.BookmarkEntity
 import com.evenfall.app.data.db.entity.BookmarkType
 import com.evenfall.app.data.db.entity.HistoryEntity
 import com.evenfall.app.data.db.entity.HistoryEventType
-import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.components.SparkleDecorations
+import com.evenfall.app.ui.theme.CookieShape
+import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,15 +91,35 @@ fun BookmarksHistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val book = uiState.book
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     var showSortMenu by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
+
+    // Calm gradient background matching Images 4 & 5
+    val backgroundBrush = if (isDark) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0F1E36),
+                Color(0xFF091222),
+                Color(0xFF060B14)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFC7DEFA),
+                Color(0xFFE2E7FD),
+                Color(0xFFEDE9F8)
+            )
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(backgroundBrush)
     ) {
-        SparkleDecorations()
+        SparkleDecorations(tint = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF1E3A8A).copy(alpha = 0.15f))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -111,7 +130,7 @@ fun BookmarksHistoryScreen(
                             Text(
                                 text = book?.title ?: "Echoes of Tomorrow",
                                 style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = SerifFont,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 maxLines = 1,
@@ -177,7 +196,8 @@ fun BookmarksHistoryScreen(
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    modifier = Modifier.statusBarsPadding()
                 )
             },
             floatingActionButton = {
@@ -186,9 +206,10 @@ fun BookmarksHistoryScreen(
                         onClick = { showSaveDialog = true },
                         icon = { Icon(Icons.Default.BookmarkAdd, contentDescription = null) },
                         text = { Text("Save this moment", fontWeight = FontWeight.SemiBold) },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = RoundedCornerShape(20.dp)
+                        containerColor = Color(0xFF0284C7),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.navigationBarsPadding()
                     )
                 }
             }
@@ -198,11 +219,12 @@ fun BookmarksHistoryScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 20.dp)
+                    .navigationBarsPadding()
             ) {
                 // Segmented Tabs: "Bookmarks N" and "History" (matching Images 4 & 5)
                 Surface(
                     shape = RoundedCornerShape(26.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = if (isDark) Color(0xFF162544).copy(alpha = 0.8f) else Color.White.copy(alpha = 0.65f),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -216,8 +238,8 @@ fun BookmarksHistoryScreen(
                         // Bookmarks Tab
                         Surface(
                             shape = RoundedCornerShape(22.dp),
-                            color = if (isBookmarks) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            contentColor = if (isBookmarks) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            color = if (isBookmarks) Color(0xFF0F4C81) else Color.Transparent,
+                            contentColor = if (isBookmarks) Color.White else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
@@ -246,8 +268,8 @@ fun BookmarksHistoryScreen(
                         val isHistory = uiState.currentTab == BookmarksTab.HISTORY
                         Surface(
                             shape = RoundedCornerShape(22.dp),
-                            color = if (isHistory) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            contentColor = if (isHistory) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            color = if (isHistory) Color(0xFF0F4C81) else Color.Transparent,
+                            contentColor = if (isHistory) Color.White else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
@@ -297,7 +319,7 @@ fun BookmarksHistoryScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Filter chips: All, Notes, Favorites, Quotes
+                    // Filter chips: All, Notes, Favorites, Quotes (matching Image 4)
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(vertical = 4.dp)
@@ -339,27 +361,26 @@ fun BookmarksHistoryScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Group bookmarks by chapter
-                    val grouped = uiState.bookmarks.groupBy { it.chapterIndex }
+                    val bookmarkChapters = uiState.bookmarks.groupBy { it.chapterIndex }
+                    val allDisplayChapterIndices = (bookmarkChapters.keys + curIdx).sorted()
+
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 90.dp)
                     ) {
-                        grouped.forEach { (chapterIdx, bList) ->
-                            val chapterName = bList.firstOrNull()?.chapterTitle ?: "Chapter ${chapterIdx + 1}"
+                        allDisplayChapterIndices.forEach { chapterIdx ->
+                            val bList = bookmarkChapters[chapterIdx] ?: emptyList()
+                            val chapterName = bList.firstOrNull()?.chapterTitle
+                                ?: uiState.chapters.getOrNull(chapterIdx)?.title
+                                ?: "Chapter ${chapterIdx + 1}"
+
                             item {
                                 Text(
                                     text = "Chapter ${chapterIdx + 1} · $chapterName",
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                    fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
-                                )
-                            }
-
-                            items(bList) { bookmark ->
-                                BookmarkRowCard(
-                                    bookmark = bookmark,
-                                    onClick = { viewModel.jumpToBookmark(bookmark) },
-                                    onDelete = { viewModel.deleteBookmark(bookmark) }
                                 )
                             }
 
@@ -373,6 +394,15 @@ fun BookmarksHistoryScreen(
                                         } else 0
                                     )
                                 }
+                            }
+
+                            items(bList) { bookmark ->
+                                BookmarkRowCard(
+                                    bookmark = bookmark,
+                                    isDark = isDark,
+                                    onClick = { viewModel.jumpToBookmark(bookmark) },
+                                    onDelete = { viewModel.deleteBookmark(bookmark) }
+                                )
                             }
                         }
                     }
@@ -388,7 +418,8 @@ fun BookmarksHistoryScreen(
                                 Text(
                                     text = timeGroup,
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                    fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                                 )
                             }
@@ -396,13 +427,14 @@ fun BookmarksHistoryScreen(
                             item {
                                 Surface(
                                     shape = RoundedCornerShape(24.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         events.forEachIndexed { idx, event ->
                                             HistoryEventRow(
                                                 event = event,
+                                                isDark = isDark,
                                                 isLast = idx == events.size - 1,
                                                 onJumpToPosition = { viewModel.jumpToHistory(event) }
                                             )
@@ -424,7 +456,7 @@ fun BookmarksHistoryScreen(
 
             AlertDialog(
                 onDismissRequest = { showSaveDialog = false },
-                title = { Text("Save this moment", fontFamily = FontFamily.Serif) },
+                title = { Text("Save this moment", fontFamily = SerifFont) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
@@ -488,12 +520,13 @@ fun BookmarksHistoryScreen(
 @Composable
 fun BookmarkRowCard(
     bookmark: BookmarkEntity,
+    isDark: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.95f),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
@@ -533,7 +566,7 @@ fun BookmarkRowCard(
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0284C7),
-                            fontFamily = FontFamily.Serif
+                            fontFamily = SerifFont
                         )
                     }
                 }
@@ -576,7 +609,7 @@ fun BookmarkRowCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = bookmark.title,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = SerifFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -598,15 +631,6 @@ fun BookmarkRowCard(
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
         }
     }
 }
@@ -645,7 +669,7 @@ fun YouAreHereCard(
             Column {
                 Text(
                     text = "You are here",
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = SerifFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = Color.White
@@ -664,6 +688,7 @@ fun YouAreHereCard(
 @Composable
 fun HistoryEventRow(
     event: HistoryEntity,
+    isDark: Boolean,
     isLast: Boolean,
     onJumpToPosition: () -> Unit
 ) {
@@ -777,7 +802,7 @@ fun HistoryEventRow(
                     modifier = Modifier
                         .width(2.dp)
                         .height(38.dp)
-                        .background(Color(0xFFCBD5E1))
+                        .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                 )
             }
         }
@@ -806,14 +831,14 @@ fun HistoryEventRow(
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFD0E1FD),
+                    color = if (isDark) Color(0xFF1E3A5F) else Color(0xFFD0E1FD),
                     modifier = Modifier.clickable(onClick = onJumpToPosition)
                 ) {
                     Text(
                         text = "Ch. ${event.chapterIndex + 1} · ${TimeUtils.formatTimestamp(event.positionMs)}",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F3E76),
+                        color = if (isDark) Color(0xFFBFD8F8) else Color(0xFF0F3E76),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }

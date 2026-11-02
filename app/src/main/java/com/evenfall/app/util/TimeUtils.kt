@@ -72,9 +72,9 @@ object TimeUtils {
             else -> {
                 val diffDays = (System.currentTimeMillis() - timestamp) / (1000 * 60 * 60 * 24)
                 if (diffDays < 7) {
-                    SimpleDateFormat("EEE", Locale.getDefault()).format(Date(timestamp))
+                    SimpleDateFormat("EEE", Locale.US).format(Date(timestamp))
                 } else {
-                    SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+                    SimpleDateFormat("MMM d", Locale.US).format(Date(timestamp))
                 }
             }
         }
@@ -84,7 +84,7 @@ object TimeUtils {
      * Formats time of day like "8:15 AM", "10:40 PM".
      */
     fun formatTimeOfDay(timestamp: Long): String {
-        return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
+        return SimpleDateFormat("h:mm a", Locale.US).format(Date(timestamp))
     }
 
     /**

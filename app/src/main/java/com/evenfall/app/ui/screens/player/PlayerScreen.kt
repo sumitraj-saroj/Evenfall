@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,20 +25,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
@@ -49,7 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,11 +69,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.ui.components.BookCoverArt
+import com.evenfall.app.ui.components.CircularSkipButton
 import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.components.DashedSegmentedBar
 import com.evenfall.app.ui.components.MorphingPlayPauseButton
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.components.WavyProgressLine
+import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,7 +90,7 @@ fun PlayerScreen(
     val book = state.currentBook
     val chapter = state.currentChapter
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val bookColors = PlayerThemeExtractor.getColorsForBook(book?.title ?: "Evenfall", isDark)
 
     var showChapterSheet by remember { mutableStateOf(false) }
@@ -105,16 +104,17 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(bookColors.backgroundBrush)
     ) {
-        SparkleDecorations(tint = bookColors.onBackground.copy(alpha = 0.15f))
+        SparkleDecorations(tint = bookColors.onBackground.copy(alpha = 0.12f))
 
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                // Top bar: Collapse chevron, Chapter list, Overflow menu
+                // Top bar with status bar insets padding
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -133,7 +133,7 @@ fun PlayerScreen(
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Chapter list button
                         Surface(
                             shape = CircleShape,
@@ -202,27 +202,27 @@ fun PlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // Cover Art (~270dp)
+                // Cover Art (~255dp)
                 BookCoverArt(
                     title = book?.title ?: "Evenfall",
                     author = book?.author ?: "",
                     coverPath = book?.coverUri,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier
-                        .size(265.dp)
+                    shape = RoundedCornerShape(26.dp),
+                    modifier = Modifier.size(255.dp)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Title & Author (matching Images 2 & 3 in Serif)
+                // Title & Author in authentic Serif font
                 Text(
                     text = book?.title ?: "Untitled",
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = SerifFont,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = bookColors.onBackground,
@@ -231,9 +231,10 @@ fun PlayerScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = book?.author ?: "Unknown Author",
+                    fontFamily = SerifFont,
                     fontSize = 15.sp,
                     color = bookColors.onBackgroundMuted,
                     textAlign = TextAlign.Center,
@@ -241,9 +242,9 @@ fun PlayerScreen(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Book Progress: Segmented Dashed Bar (one segment per chapter)
+                // Book Progress: Segmented Dashed Bar
                 val totalChapters = state.chapters.size.coerceAtLeast(1)
                 val currentChapterIdx = state.currentChapter?.chapterIndex ?: 0
                 DashedSegmentedBar(
@@ -256,7 +257,7 @@ fun PlayerScreen(
                     gapWidth = 4.dp
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // "% of book" on left, "time left" on right
                 Row(
@@ -277,7 +278,7 @@ fun PlayerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Chapter Selector Pill
                 Surface(
@@ -348,9 +349,9 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Chapter Seek Slider: Wavy when playing, Flat when paused!
+                // Chapter Seek Slider (Wavy when playing, flat when paused)
                 WavyProgressLine(
                     progress = state.chapterProgressFraction,
                     onSeek = viewModel::seekToFraction,
@@ -411,28 +412,21 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Main Controls: Skip Back, Morphing Play/Pause, Skip Forward
+                // Main Controls: Curved Rewind, Morphing Play/Pause, Curved Forward
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Skip back
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(CircleShape)
-                            .background(bookColors.skipButtonBackground)
-                            .clickable(onClick = viewModel::skipBackward),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FastRewind,
-                            contentDescription = "Rewind $skipSeconds seconds",
-                            tint = bookColors.skipButtonContent,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+                    // Curved Rewind Button (e.g. ↺ 20)
+                    CircularSkipButton(
+                        seconds = skipSeconds,
+                        isForward = false,
+                        onClick = viewModel::skipBackward,
+                        size = 58.dp,
+                        containerColor = bookColors.skipButtonBackground,
+                        contentColor = bookColors.skipButtonContent
+                    )
 
                     Spacer(modifier = Modifier.width(28.dp))
 
@@ -440,35 +434,28 @@ fun PlayerScreen(
                     MorphingPlayPauseButton(
                         isPlaying = state.isPlaying,
                         onClick = viewModel::togglePlayPause,
-                        size = 86.dp,
-                        iconSize = 42.dp,
+                        size = 84.dp,
+                        iconSize = 40.dp,
                         containerColor = bookColors.playButtonContainer,
                         contentColor = bookColors.playButtonContent
                     )
 
                     Spacer(modifier = Modifier.width(28.dp))
 
-                    // Skip forward
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(CircleShape)
-                            .background(bookColors.skipButtonBackground)
-                            .clickable(onClick = viewModel::skipForward),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FastForward,
-                            contentDescription = "Forward $skipSeconds seconds",
-                            tint = bookColors.skipButtonContent,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+                    // Curved Forward Button (e.g. ↻ 20)
+                    CircularSkipButton(
+                        seconds = skipSeconds,
+                        isForward = true,
+                        onClick = viewModel::skipForward,
+                        size = 58.dp,
+                        containerColor = bookColors.skipButtonBackground,
+                        contentColor = bookColors.skipButtonContent
+                    )
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Bottom Pill Toolbar (Sleep timer, Speed, Bookmarks, Silence skipping, Volume boost)
+                // Bottom Pill Toolbar (matching Images 2 & 3)
                 Surface(
                     shape = RoundedCornerShape(28.dp),
                     color = bookColors.bottomToolbarContainer,
@@ -479,11 +466,11 @@ fun PlayerScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 10.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Sleep Timer (shows live countdown chip e.g. "29:57" when active)
+                        // 1. Sleep Timer (live countdown chip e.g. "29:57" when active)
                         if (state.sleepTimerIsActive && state.sleepTimerRemainingMs != null) {
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
@@ -537,7 +524,7 @@ fun PlayerScreen(
                             )
                         }
 
-                        // 4. Silence Skipping (Scissors icon)
+                        // 4. Silence Skipping
                         IconButton(onClick = viewModel::toggleSilenceSkipping) {
                             Icon(
                                 imageVector = Icons.Default.ContentCut,
@@ -557,7 +544,7 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
@@ -571,9 +558,11 @@ fun PlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp)
+                        .navigationBarsPadding()
                 ) {
                     Text(
                         text = "Chapters",
+                        fontFamily = SerifFont,
                         style = MaterialTheme.typography.titleLarge
                     )
                     Spacer(modifier = Modifier.height(14.dp))
@@ -639,8 +628,9 @@ fun PlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(24.dp)
+                        .navigationBarsPadding()
                 ) {
-                    Text("Sleep Timer", style = MaterialTheme.typography.titleLarge)
+                    Text("Sleep Timer", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val presets = listOf(5, 15, 30, 45, 60)
@@ -708,10 +698,11 @@ fun PlayerScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
+                        .padding(24.dp)
+                        .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Playback Speed", style = MaterialTheme.typography.titleLarge)
+                    Text("Playback Speed", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "${String.format("%.2f", state.playbackSpeed)}x",
@@ -725,7 +716,7 @@ fun PlayerScreen(
                         value = state.playbackSpeed,
                         onValueChange = viewModel::setPlaybackSpeed,
                         valueRange = 0.5f..3.0f,
-                        steps = 49 // 0.05 increments
+                        steps = 49
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -753,10 +744,11 @@ fun PlayerScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
+                        .padding(24.dp)
+                        .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Volume Boost", style = MaterialTheme.typography.titleLarge)
+                    Text("Volume Boost", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     val boostPercent = (state.volumeBoostLevel * 100).toInt()
                     Text(
