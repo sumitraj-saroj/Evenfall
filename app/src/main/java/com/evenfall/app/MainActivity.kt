@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.evenfall.app.ui.navigation.Screen
+import com.evenfall.app.ui.screens.bookmarks.BookmarksHistoryScreen
 import com.evenfall.app.ui.screens.home.HomeScreen
 import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
 import com.evenfall.app.ui.screens.player.PlayerScreen
@@ -88,7 +89,11 @@ fun EvenfallAppNav() {
             route = Screen.BookmarksHistory.route,
             arguments = listOf(navArgument("bookId") { type = NavType.LongType })
         ) {
-            // Placeholder - will be implemented in Milestone 6
+            BookmarksHistoryScreen(
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(Screen.Settings.route) {
