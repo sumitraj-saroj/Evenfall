@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +17,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,15 +30,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
@@ -63,7 +61,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +70,7 @@ import com.evenfall.app.data.datastore.ThemeMode
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.theme.ColorSchemeOption
 import com.evenfall.app.ui.theme.CookieShape
+import com.evenfall.app.ui.theme.SerifFont
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +79,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -88,6 +88,12 @@ fun SettingsScreen(
             viewModel.exportBackup(uri)
         }
     }
+
+    // Appearance card palette adapting cleanly to dark and light modes
+    val appearanceCardBg = if (isDark) Color(0xFF1E2D4A) else Color(0xFFB4D2F7).copy(alpha = 0.55f)
+    val appearanceTextPrimary = if (isDark) Color(0xFFE2EDFD) else Color(0xFF0F1E36)
+    val appearanceTextSecondary = if (isDark) Color(0xFFBFD8F8) else Color(0xFF1E3A5F)
+    val appearanceTextMuted = if (isDark) Color(0xFF90B4EC) else Color(0xFF1E3A5F).copy(alpha = 0.85f)
 
     Box(
         modifier = Modifier
@@ -105,7 +111,7 @@ fun SettingsScreen(
                             Text(
                                 text = "Settings",
                                 style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = SerifFont,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -124,7 +130,8 @@ fun SettingsScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    modifier = Modifier.statusBarsPadding()
                 )
             }
         ) { paddingValues ->
@@ -133,22 +140,23 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 20.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 // APPEARANCE CARD (matching Image 7)
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = Color(0xFF90B4EC).copy(alpha = 0.5f),
+                    color = appearanceCardBg,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = "Appearance",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = SerifFont,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F1E36)
+                            color = appearanceTextPrimary
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -157,7 +165,7 @@ fun SettingsScreen(
                             text = "Theme",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1E3A5F)
+                            color = appearanceTextSecondary
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -170,6 +178,7 @@ fun SettingsScreen(
                                 title = "Follow system",
                                 isSelected = uiState.themeMode == ThemeMode.FOLLOW_SYSTEM,
                                 isSplit = true,
+                                titleColor = appearanceTextSecondary,
                                 onClick = { viewModel.setThemeMode(ThemeMode.FOLLOW_SYSTEM) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -178,6 +187,7 @@ fun SettingsScreen(
                                 title = "Light",
                                 isSelected = uiState.themeMode == ThemeMode.LIGHT,
                                 isDark = false,
+                                titleColor = appearanceTextSecondary,
                                 onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -186,6 +196,7 @@ fun SettingsScreen(
                                 title = "Dark",
                                 isSelected = uiState.themeMode == ThemeMode.DARK,
                                 isDark = true,
+                                titleColor = appearanceTextSecondary,
                                 onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -220,12 +231,12 @@ fun SettingsScreen(
                                     text = "Pure black",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF0F1E36)
+                                    color = appearanceTextPrimary
                                 )
                                 Text(
                                     text = "Saves battery on OLED screens in the dark theme.",
                                     fontSize = 12.sp,
-                                    color = Color(0xFF1E3A5F).copy(alpha = 0.85f)
+                                    color = appearanceTextMuted
                                 )
                             }
 
@@ -242,15 +253,41 @@ fun SettingsScreen(
                             text = "Color scheme",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1E3A5F)
+                            color = appearanceTextSecondary
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        // Row 1: 5 swatches (Evenfall blue, Dynamic, Teal, Green, Orange)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            ColorSchemeOption.entries.forEach { option ->
+                            listOf(
+                                ColorSchemeOption.EVENFALL_BLUE,
+                                ColorSchemeOption.DYNAMIC,
+                                ColorSchemeOption.TEAL,
+                                ColorSchemeOption.GREEN,
+                                ColorSchemeOption.ORANGE
+                            ).forEach { option ->
+                                ColorSchemeSwatch(
+                                    option = option,
+                                    isSelected = uiState.colorSchemeOption == option,
+                                    onClick = { viewModel.setColorScheme(option) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Row 2: 2 swatches (Pink, Purple)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            listOf(
+                                ColorSchemeOption.PINK,
+                                ColorSchemeOption.PURPLE
+                            ).forEach { option ->
                                 ColorSchemeSwatch(
                                     option = option,
                                     isSelected = uiState.colorSchemeOption == option,
@@ -264,7 +301,7 @@ fun SettingsScreen(
                             text = uiState.colorSchemeOption.displayName,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E3A5F)
+                            color = appearanceTextSecondary
                         )
                     }
                 }
@@ -278,7 +315,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = "Listening",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = SerifFont,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -309,7 +346,7 @@ fun SettingsScreen(
                             // Minus button
                             Surface(
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clickable { viewModel.updateSkipAmount(-5) }
@@ -323,12 +360,12 @@ fun SettingsScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(24.dp))
+                            Spacer(modifier = Modifier.width(20.dp))
 
-                            // Live preview of buttons pill
+                            // Live preview of buttons pill matching Image 7
                             Surface(
                                 shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.surface,
+                                color = if (isDark) Color(0xFF1E293B) else Color(0xFF334155).copy(alpha = 0.15f),
                                 modifier = Modifier.padding(horizontal = 4.dp)
                             ) {
                                 Row(
@@ -336,7 +373,7 @@ fun SettingsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.FastRewind,
+                                        imageVector = Icons.Default.Replay,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp)
@@ -344,21 +381,21 @@ fun SettingsScreen(
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
+                                            .size(34.dp)
                                             .clip(CookieShape(lobes = 10, depth = 0.16f))
-                                            .background(MaterialTheme.colorScheme.primary),
+                                            .background(Color(0xFF2563EB)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            tint = Color.White,
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Icon(
-                                        imageVector = Icons.Default.FastForward,
+                                        imageVector = Icons.Default.Refresh,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp)
@@ -366,12 +403,12 @@ fun SettingsScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(24.dp))
+                            Spacer(modifier = Modifier.width(20.dp))
 
                             // Plus button
                             Surface(
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clickable { viewModel.updateSkipAmount(5) }
@@ -450,7 +487,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = "Library & Backup",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = SerifFont,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -513,7 +550,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = "About Evenfall",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = SerifFont,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -547,6 +584,7 @@ fun ThemePreviewCard(
     isSelected: Boolean,
     isDark: Boolean = false,
     isSplit: Boolean = false,
+    titleColor: Color = Color(0xFF1E3A5F),
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -643,7 +681,7 @@ fun ThemePreviewCard(
             text = title,
             fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = Color(0xFF1E3A5F)
+            color = titleColor
         )
     }
 }
@@ -664,49 +702,17 @@ fun ColorSchemeSwatch(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (option == ColorSchemeOption.EVENFALL_BLUE) {
-            // Quadrant swatch matching screenshot
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val w = this.size.width
-                val h = this.size.height
-                drawRect(Color(0xFF1E3A8A), topLeft = Offset.Zero, size = Size(w / 2f, h / 2f))
-                drawRect(Color(0xFF93C5FD), topLeft = Offset(w / 2f, 0f), size = Size(w / 2f, h / 2f))
-                drawRect(Color(0xFFE9D5FF), topLeft = Offset(0f, h / 2f), size = Size(w / 2f, h / 2f))
-                drawRect(Color(0xFF38BDF8), topLeft = Offset(w / 2f, h / 2f), size = Size(w / 2f, h / 2f))
-            }
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        } else if (option == ColorSchemeOption.DYNAMIC) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF64748B), Color(0xFFCBD5E1), Color(0xFFF1F5F9))
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(option.primaryColor),
-                contentAlignment = Alignment.Center
-            ) {
+        when (option) {
+            ColorSchemeOption.EVENFALL_BLUE -> {
+                // Quadrant swatch matching screenshot
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = this.size.width
+                    val h = this.size.height
+                    drawRect(Color(0xFF1E3A8A), topLeft = Offset.Zero, size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFF93C5FD), topLeft = Offset(w / 2f, 0f), size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFFE9D5FF), topLeft = Offset(0f, h / 2f), size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFF38BDF8), topLeft = Offset(w / 2f, h / 2f), size = Size(w / 2f, h / 2f))
+                }
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.Check,
@@ -716,6 +722,80 @@ fun ColorSchemeSwatch(
                     )
                 }
             }
+            ColorSchemeOption.DYNAMIC -> {
+                // 4 pastel quadrants with sparkles
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = this.size.width
+                    val h = this.size.height
+                    drawRect(Color(0xFF94A3B8), topLeft = Offset.Zero, size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFFBAE6FD), topLeft = Offset(w / 2f, 0f), size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFFFBCFE8), topLeft = Offset(0f, h / 2f), size = Size(w / 2f, h / 2f))
+                    drawRect(Color(0xFFFEF08A), topLeft = Offset(w / 2f, h / 2f), size = Size(w / 2f, h / 2f))
+                }
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            ColorSchemeOption.TEAL -> {
+                SplitColorSwatch(
+                    topColor = Color(0xFF00796B),
+                    bottomColor = Color(0xFFB2DFDB),
+                    isSelected = isSelected
+                )
+            }
+            ColorSchemeOption.GREEN -> {
+                SplitColorSwatch(
+                    topColor = Color(0xFF388E3C),
+                    bottomColor = Color(0xFFDCEDC8),
+                    isSelected = isSelected
+                )
+            }
+            ColorSchemeOption.ORANGE -> {
+                SplitColorSwatch(
+                    topColor = Color(0xFFD84315),
+                    bottomColor = Color(0xFFFFE0B2),
+                    isSelected = isSelected
+                )
+            }
+            ColorSchemeOption.PINK -> {
+                SplitColorSwatch(
+                    topColor = Color(0xFFC2185B),
+                    bottomColor = Color(0xFFF8BBD0),
+                    isSelected = isSelected
+                )
+            }
+            ColorSchemeOption.PURPLE -> {
+                SplitColorSwatch(
+                    topColor = Color(0xFF7B1FA2),
+                    bottomColor = Color(0xFFE1BEE7),
+                    isSelected = isSelected
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SplitColorSwatch(
+    topColor: Color,
+    bottomColor: Color,
+    isSelected: Boolean
+) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(topColor, topLeft = Offset.Zero, size = Size(size.width, size.height / 2f))
+            drawRect(bottomColor, topLeft = Offset(0f, size.height / 2f), size = Size(size.width, size.height / 2f))
+        }
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

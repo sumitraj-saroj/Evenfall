@@ -25,7 +25,7 @@ object PlayerThemeExtractor {
         val clean = title.lowercase()
         return when {
             clean.contains("horizon") -> {
-                // Beyond the Horizon: Warm Golden Amber Palette (matching Image 2)
+                // Beyond the Horizon: Warm Golden Amber Palette (Screenshot 2)
                 PlayerBookColors(
                     backgroundBrush = Brush.verticalGradient(
                         colors = listOf(
@@ -36,7 +36,7 @@ object PlayerThemeExtractor {
                     ),
                     onBackground = Color(0xFF451A03),
                     onBackgroundMuted = Color(0xFF78350F).copy(alpha = 0.85f),
-                    cardBackground = Color(0xFFFBE49D).copy(alpha = 0.65f),
+                    cardBackground = Color(0xFFFBE49D).copy(alpha = 0.7f),
                     playButtonContainer = Color(0xFF6B4314),
                     playButtonContent = Color(0xFFFFFBEB),
                     skipButtonBackground = Color(0xFFF7D171),
@@ -50,7 +50,7 @@ object PlayerThemeExtractor {
                 )
             }
             clean.contains("echoes") -> {
-                // Echoes of Tomorrow: Deep Cosmic Blue Palette (matching Image 3)
+                // Echoes of Tomorrow: Deep Cosmic Blue Palette (Screenshot 3)
                 PlayerBookColors(
                     backgroundBrush = Brush.verticalGradient(
                         colors = listOf(
@@ -61,7 +61,7 @@ object PlayerThemeExtractor {
                     ),
                     onBackground = Color(0xFFE2E8F0),
                     onBackgroundMuted = Color(0xFF94A3B8),
-                    cardBackground = Color(0xFF132F4C).copy(alpha = 0.7f),
+                    cardBackground = Color(0xFF132F4C).copy(alpha = 0.75f),
                     playButtonContainer = Color(0xFF7DD3FC),
                     playButtonContent = Color(0xFF082F49),
                     skipButtonBackground = Color(0xFF1E4976),
@@ -74,8 +74,32 @@ object PlayerThemeExtractor {
                     undoChipContent = Color(0xFFE0F2FE)
                 )
             }
+            clean.contains("bookshop") -> {
+                // The Bookshop on Maple Street: Warm Terracotta / Bookstore Palette
+                PlayerBookColors(
+                    backgroundBrush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF2E1C14),
+                            Color(0xFF1F120D),
+                            Color(0xFF140B07)
+                        )
+                    ),
+                    onBackground = Color(0xFFFEF3C7),
+                    onBackgroundMuted = Color(0xFFD6D3D1),
+                    cardBackground = Color(0xFF43281C).copy(alpha = 0.7f),
+                    playButtonContainer = Color(0xFFF59E0B),
+                    playButtonContent = Color(0xFF451A03),
+                    skipButtonBackground = Color(0xFF5A3525),
+                    skipButtonContent = Color(0xFFFEF3C7),
+                    bottomToolbarContainer = Color(0xFFB45309),
+                    bottomToolbarContent = Color(0xFFFFFBEB),
+                    activeSliderColor = Color(0xFFF59E0B),
+                    inactiveSliderColor = Color(0xFFF59E0B).copy(alpha = 0.25f),
+                    undoChipBackground = Color(0xFF78350F),
+                    undoChipContent = Color(0xFFFDE68A)
+                )
+            }
             else -> {
-                // Default Calming Evenfall Theme
                 if (isDark) {
                     PlayerBookColors(
                         backgroundBrush = Brush.verticalGradient(
