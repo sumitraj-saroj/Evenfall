@@ -146,7 +146,7 @@ fun PlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(horizontal = 20.dp, vertical = if (isLandscape) 2.dp else 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -154,7 +154,7 @@ fun PlayerScreen(
                     Surface(
                         shape = CircleShape,
                         color = bookColors.cardBackground,
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
                     ) {
                         IconButton(onClick = onCollapse) {
                             Icon(
@@ -171,7 +171,7 @@ fun PlayerScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = bookColors.cardBackground,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
                             ) {
                                 IconButton(onClick = { showChapterSheet = true }) {
                                     Icon(
@@ -188,7 +188,7 @@ fun PlayerScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = bookColors.cardBackground,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
                             ) {
                                 IconButton(onClick = { showOverflowMenu = true }) {
                                     Icon(
@@ -252,7 +252,7 @@ fun PlayerScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .weight(0.42f)
+                            .weight(0.38f)
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
@@ -261,19 +261,19 @@ fun PlayerScreen(
                             author = book?.author ?: "",
                             coverPath = book?.coverUri,
                             shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.size(190.dp)
+                            modifier = Modifier.size(160.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(20.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
                     Column(
                         modifier = Modifier
-                            .weight(0.58f)
+                            .weight(0.62f)
                             .fillMaxHeight()
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceEvenly
+                        verticalArrangement = Arrangement.Center
                     ) {
                         PlayerContent(
                             book = book,
@@ -288,6 +288,8 @@ fun PlayerScreen(
                             totalChapters = totalChapters,
                             currentChapterIdx = currentChapterIdx,
                             showUndoChip = showUndoChip,
+                            showCover = false,
+                            isLandscape = true,
                             onOpenChapterSheet = { showChapterSheet = true },
                             onSeekToFraction = viewModel::seekToFraction,
                             onUndoSeek = {
@@ -685,6 +687,8 @@ private fun PlayerContent(
     totalChapters: Int,
     currentChapterIdx: Int,
     showUndoChip: Boolean,
+    showCover: Boolean = true,
+    isLandscape: Boolean = false,
     onOpenChapterSheet: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
     onUndoSeek: () -> Unit,
@@ -700,23 +704,25 @@ private fun PlayerContent(
     onSilenceToggle: () -> Unit,
     onVolumeBoostClick: () -> Unit
 ) {
-    // 1. Cover Art (15-20% smaller than previous 255dp, ~205dp with more breathing room)
-    BookCoverArt(
-        title = book?.title ?: "Evenfall",
-        author = book?.author ?: "",
-        coverPath = book?.coverUri,
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.size(if (compactPlayer) 205.dp else 240.dp)
-    )
+    if (showCover) {
+        // 1. Cover Art (15-20% smaller than previous 255dp, ~205dp with more breathing room)
+        BookCoverArt(
+            title = book?.title ?: "Evenfall",
+            author = book?.author ?: "",
+            coverPath = book?.coverUri,
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.size(if (compactPlayer) 205.dp else 240.dp)
+        )
 
-    Spacer(modifier = Modifier.height(if (compactPlayer) 16.dp else 12.dp))
+        Spacer(modifier = Modifier.height(if (compactPlayer) 16.dp else 12.dp))
+    }
 
     // 2. Title and Author: serif font, one line ellipsized, smaller size
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = book?.title ?: "Untitled",
             fontFamily = SerifFont,
-            fontSize = if (compactPlayer) 20.sp else 23.sp,
+            fontSize = if (isLandscape) 17.sp else (if (compactPlayer) 20.sp else 23.sp),
             fontWeight = FontWeight.Bold,
             color = bookColors.onBackground,
             textAlign = TextAlign.Center,
@@ -724,11 +730,11 @@ private fun PlayerContent(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
         )
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = book?.author ?: "Unknown Author",
             fontFamily = SerifFont,
-            fontSize = 14.sp,
+            fontSize = if (isLandscape) 12.sp else 14.sp,
             color = bookColors.onBackgroundMuted,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -737,7 +743,7 @@ private fun PlayerContent(
         )
     }
 
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(if (isLandscape) 2.dp else 8.dp))
 
     // 3. Chapter Line / Pill
     if (compactPlayer) {
@@ -748,7 +754,7 @@ private fun PlayerContent(
                 color = Color.Transparent,
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .defaultMinSize(minHeight = 48.dp)
+                    .defaultMinSize(minHeight = if (isLandscape) 36.dp else 48.dp)
                     .clickable(
                         onClickLabel = "Select chapter",
                         onClick = onOpenChapterSheet
@@ -757,7 +763,7 @@ private fun PlayerContent(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isLandscape) 2.dp else 6.dp)
                 ) {
                     Text(
                         text = "Chapter ${currentChapterIdx + 1} of $totalChapters ▾",
@@ -874,7 +880,7 @@ private fun PlayerContent(
         }
     }
 
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 10.dp))
 
     // 4. Temporary "Back to mm:ss" undo chip positioned ABOVE seek slider (centered)
     AnimatedVisibility(
@@ -960,7 +966,7 @@ private fun PlayerContent(
         }
     }
 
-    Spacer(modifier = Modifier.height(18.dp))
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 18.dp))
 
     // 6. Transport Controls: Prev Chapter, Skip Back, Play/Pause, Skip Forward, Next Chapter
     Row(
@@ -972,16 +978,16 @@ private fun PlayerContent(
         if (hasMultipleChapters) {
             IconButton(
                 onClick = onPreviousChapter,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = "Previous Chapter",
                     tint = bookColors.onBackgroundMuted,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 10.dp))
         }
 
         // Skip Backward (tonal / muted style)
@@ -989,54 +995,54 @@ private fun PlayerContent(
             seconds = skipSeconds,
             isForward = false,
             onClick = onSkipBackward,
-            size = 52.dp,
+            size = if (isLandscape) 42.dp else 52.dp,
             containerColor = bookColors.cardBackground,
             contentColor = bookColors.onBackground
         )
 
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(if (isLandscape) 10.dp else 20.dp))
 
         // Play/Pause (only strong accent color)
         MorphingPlayPauseButton(
             isPlaying = state.isPlaying,
             onClick = onTogglePlayPause,
-            size = 80.dp,
-            iconSize = 38.dp,
+            size = if (isLandscape) 56.dp else 80.dp,
+            iconSize = if (isLandscape) 26.dp else 38.dp,
             containerColor = bookColors.playButtonContainer,
             contentColor = bookColors.playButtonContent
         )
 
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(if (isLandscape) 10.dp else 20.dp))
 
         // Skip Forward (tonal / muted style)
         CircularSkipButton(
             seconds = skipSeconds,
             isForward = true,
             onClick = onSkipForward,
-            size = 52.dp,
+            size = if (isLandscape) 42.dp else 52.dp,
             containerColor = bookColors.cardBackground,
             contentColor = bookColors.onBackground
         )
 
         // Next Chapter (hidden if single chapter)
         if (hasMultipleChapters) {
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 10.dp))
             IconButton(
                 onClick = onNextChapter,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = "Next Chapter",
                     tint = bookColors.onBackgroundMuted,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
                 )
             }
         }
     }
 
-    // At least 24dp of spacing between controls and toolbar
-    Spacer(modifier = Modifier.height(28.dp))
+    // Spacing between controls and toolbar (at least 24dp in portrait, compact in landscape)
+    Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 28.dp))
 
     // 7. Bottom Toolbar
     if (compactPlayer) {
@@ -1045,6 +1051,7 @@ private fun PlayerContent(
             state = state,
             bookColors = bookColors,
             isDark = isDark,
+            isLandscape = isLandscape,
             onSleepClick = onSleepClick,
             onSpeedClick = onSpeedClick,
             onBookmarksClick = onBookmarksClick,
@@ -1063,7 +1070,7 @@ private fun PlayerContent(
         )
     }
 
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 10.dp))
 }
 
 @Composable
@@ -1071,6 +1078,7 @@ private fun CompactBottomToolbar(
     state: PlaybackState,
     bookColors: PlayerBookColors,
     isDark: Boolean,
+    isLandscape: Boolean = false,
     onSleepClick: () -> Unit,
     onSpeedClick: () -> Unit,
     onBookmarksClick: () -> Unit,
@@ -1085,7 +1093,7 @@ private fun CompactBottomToolbar(
         color = toolbarBg,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(if (isLandscape) 48.dp else 56.dp)
     ) {
         Row(
             modifier = Modifier
