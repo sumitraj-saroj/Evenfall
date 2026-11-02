@@ -475,6 +475,27 @@ fun SettingsScreen(
                                 onCheckedChange = viewModel::setShakeToExtendEnabled
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Compact player toggle (default on)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Compact player", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Calm, streamlined layout with simplified controls",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.compactPlayer,
+                                onCheckedChange = viewModel::setCompactPlayer
+                            )
+                        }
                     }
                 }
 

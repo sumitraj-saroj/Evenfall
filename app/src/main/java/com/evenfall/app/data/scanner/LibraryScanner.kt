@@ -9,6 +9,7 @@ import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.ChapterEntity
 import com.evenfall.app.data.parser.AudioMetadataParser
+import com.evenfall.app.data.parser.TitleSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +38,8 @@ data class ScannedAudioFile(
     val author: String,
     val durationMs: Long,
     val trackNumber: Int?,
-    val coverPath: String?
+    val coverPath: String?,
+    val album: String? = null
 )
 
 sealed class ScanProgress {
@@ -73,19 +75,26 @@ class LibraryScanner @Inject constructor(
                 for (doc in files) {
                     val rawName = doc.name ?: "Unknown Audio"
                     val fallbackTitle = rawName.substringBeforeLast(".")
-                    val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle)
+                    val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle, rootDoc.name)
+                    val resolvedTitle = TitleSanitizer.resolveTitle(
+                        titleTag = meta.title,
+                        albumTag = meta.album,
+                        folderName = rootDoc.name,
+                        fileName = fallbackTitle
+                    )
                     val scannedFile = ScannedAudioFile(
                         name = rawName,
                         uri = doc.uri,
-                        title = meta.title,
+                        title = resolvedTitle,
                         author = meta.author,
                         durationMs = meta.durationMs,
                         trackNumber = meta.trackNumber,
-                        coverPath = meta.coverPath
+                        coverPath = meta.coverPath,
+                        album = meta.album
                     )
                     books.add(
                         ScannedBookPreview(
-                            title = meta.title,
+                            title = resolvedTitle,
                             author = meta.author,
                             durationMs = meta.durationMs,
                             fileCount = 1,
@@ -197,7 +206,7 @@ class LibraryScanner @Inject constructor(
         val parsedFiles = files.map { doc ->
             val name = doc.name ?: "Audio"
             val fallbackTitle = name.substringBeforeLast(".")
-            val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle)
+            val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle, folderName)
             ScannedAudioFile(
                 name = name,
                 uri = doc.uri,
@@ -205,7 +214,8 @@ class LibraryScanner @Inject constructor(
                 author = meta.author,
                 durationMs = meta.durationMs,
                 trackNumber = meta.trackNumber,
-                coverPath = meta.coverPath
+                coverPath = meta.coverPath,
+                album = meta.album
             )
         }
 
@@ -216,10 +226,21 @@ class LibraryScanner @Inject constructor(
             parsedFiles.sortedWith { f1, f2 -> naturalComparator.compare(f1.name, f2.name) }
         }
 
-        // Book title: either common title or folder name
+        // Book title: resolve following fallback order: title tag -> album tag -> folder name -> file name
         val firstWithAuthor = sortedFiles.firstOrNull { it.author != "Unknown Author" }
         val author = firstWithAuthor?.author ?: "Unknown Author"
-        val title = folderName.replace("_", " ").trim()
+
+        val firstValidTitle = sortedFiles.map { it.title }.firstOrNull { !TitleSanitizer.isGenericTitle(it) }
+        val firstValidAlbum = sortedFiles.mapNotNull { it.album }.firstOrNull { !TitleSanitizer.isGenericTitle(it) }
+        val cleanFolderName = folderName.replace("_", " ").trim()
+        val firstFileName = sortedFiles.firstOrNull()?.name?.substringBeforeLast(".")
+
+        val title = TitleSanitizer.resolveTitle(
+            titleTag = firstValidTitle,
+            albumTag = firstValidAlbum,
+            folderName = cleanFolderName,
+            fileName = firstFileName
+        )
         val totalDuration = sortedFiles.sumOf { it.durationMs }
         val cover = sortedFiles.firstOrNull { it.coverPath != null }?.coverPath
 

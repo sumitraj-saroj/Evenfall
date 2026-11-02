@@ -1,16 +1,20 @@
 package com.evenfall.app.ui.screens.player
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,10 +25,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -33,6 +38,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -40,6 +46,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,10 +54,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,22 +70,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.evenfall.app.playback.PlaybackState
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.CircularSkipButton
-import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.components.DashedSegmentedBar
 import com.evenfall.app.ui.components.MorphingPlayPauseButton
-import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.components.WavyProgressLine
 import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
+import kotlinx.coroutines.delay
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +97,7 @@ fun PlayerScreen(
 ) {
     val state by viewModel.playbackState.collectAsState()
     val skipSeconds by viewModel.skipSeconds.collectAsState()
+    val compactPlayer by viewModel.compactPlayer.collectAsState()
     val book = state.currentBook
     val chapter = state.currentChapter
 
@@ -96,25 +107,46 @@ fun PlayerScreen(
     var showChapterSheet by remember { mutableStateOf(false) }
     var showSleepSheet by remember { mutableStateOf(false) }
     var showSpeedSheet by remember { mutableStateOf(false) }
+    var showPlaybackOptionsSheet by remember { mutableStateOf(false) }
     var showVolumeBoostSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+
+    // Auto-dismiss undo seek chip after 8 seconds or when tapped
+    var showUndoChip by remember { mutableStateOf(false) }
+    LaunchedEffect(state.undoSeekPositionMs) {
+        if (state.undoSeekPositionMs != null) {
+            showUndoChip = true
+            delay(8000L)
+            showUndoChip = false
+        } else {
+            showUndoChip = false
+        }
+    }
+
+    val totalChapters = state.chapters.size.coerceAtLeast(1)
+    val hasMultipleChapters = totalChapters > 1
+    val hasManyChapters = totalChapters >= 5
+    val currentChapterIdx = state.currentChapter?.chapterIndex ?: 0
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bookColors.backgroundBrush)
     ) {
-        SparkleDecorations(tint = bookColors.onBackground.copy(alpha = 0.12f))
+        // Decorative sparkles are removed from Now Playing screen per requirements
 
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                // Top bar with status bar insets padding
+                // Top bar with status bar padding: collapse chevron on left, overflow on right
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(horizontal = 20.dp, vertical = if (isLandscape) 2.dp else 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -122,7 +154,7 @@ fun PlayerScreen(
                     Surface(
                         shape = CircleShape,
                         color = bookColors.cardBackground,
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
                     ) {
                         IconButton(onClick = onCollapse) {
                             Icon(
@@ -134,18 +166,20 @@ fun PlayerScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Chapter list button
-                        Surface(
-                            shape = CircleShape,
-                            color = bookColors.cardBackground,
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            IconButton(onClick = { showChapterSheet = true }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                    contentDescription = "Chapter list",
-                                    tint = bookColors.onBackground
-                                )
+                        // In dense mode only: show separate chapter list icon
+                        if (!compactPlayer) {
+                            Surface(
+                                shape = CircleShape,
+                                color = bookColors.cardBackground,
+                                modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
+                            ) {
+                                IconButton(onClick = { showChapterSheet = true }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                        contentDescription = "Chapter list",
+                                        tint = bookColors.onBackground
+                                    )
+                                }
                             }
                         }
 
@@ -154,7 +188,7 @@ fun PlayerScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = bookColors.cardBackground,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(if (isLandscape) 36.dp else 44.dp)
                             ) {
                                 IconButton(onClick = { showOverflowMenu = true }) {
                                     Icon(
@@ -192,359 +226,133 @@ fun PlayerScreen(
                                         showOverflowMenu = false
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Playback options") },
+                                    leadingIcon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
+                                    onClick = {
+                                        showPlaybackOptionsSheet = true
+                                        showOverflowMenu = false
+                                    }
+                                )
                             }
                         }
                     }
                 }
             }
         ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 24.dp)
-                    .navigationBarsPadding(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Cover Art (~255dp)
-                BookCoverArt(
-                    title = book?.title ?: "Evenfall",
-                    author = book?.author ?: "",
-                    coverPath = book?.coverUri,
-                    shape = RoundedCornerShape(26.dp),
-                    modifier = Modifier.size(255.dp)
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Title & Author in authentic Serif font
-                Text(
-                    text = book?.title ?: "Untitled",
-                    fontFamily = SerifFont,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = bookColors.onBackground,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = book?.author ?: "Unknown Author",
-                    fontFamily = SerifFont,
-                    fontSize = 15.sp,
-                    color = bookColors.onBackgroundMuted,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Book Progress: Segmented Dashed Bar
-                val totalChapters = state.chapters.size.coerceAtLeast(1)
-                val currentChapterIdx = state.currentChapter?.chapterIndex ?: 0
-                DashedSegmentedBar(
-                    totalSegments = totalChapters,
-                    currentSegment = currentChapterIdx,
-                    progressWithinCurrent = state.chapterProgressFraction,
-                    activeColor = bookColors.activeSliderColor,
-                    inactiveColor = bookColors.inactiveSliderColor,
-                    barHeight = 5.dp,
-                    gapWidth = 4.dp
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // "% of book" on left, "time left" on right
+            if (isLandscape) {
+                // LANDSCAPE LAYOUT: Cover on left, controls on right
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "${state.totalProgressPercent}% of book",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = bookColors.onBackgroundMuted
-                    )
-                    Text(
-                        text = TimeUtils.formatTimeLeft(state.totalTimeRemainingMs),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = bookColors.onBackgroundMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Chapter Selector Pill
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = bookColors.cardBackground,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = viewModel::previousChapter,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SkipPrevious,
-                                contentDescription = "Previous Chapter",
-                                tint = bookColors.onBackground
-                            )
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showChapterSheet = true },
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Chapter ${currentChapterIdx + 1} of $totalChapters",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = bookColors.onBackgroundMuted
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = chapter?.title ?: "Chapter ${currentChapterIdx + 1}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = bookColors.onBackground,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = bookColors.onBackground,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = viewModel::nextChapter,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SkipNext,
-                                contentDescription = "Next Chapter",
-                                tint = bookColors.onBackground
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Chapter Seek Slider (Wavy when playing, flat when paused)
-                WavyProgressLine(
-                    progress = state.chapterProgressFraction,
-                    onSeek = viewModel::seekToFraction,
-                    isPlaying = state.isPlaying,
-                    activeColor = bookColors.activeSliderColor,
-                    inactiveColor = bookColors.inactiveSliderColor,
-                    thumbColor = bookColors.activeSliderColor
-                )
-
-                // Elapsed time, "Back to mm:ss" undo chip, and remaining time
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = TimeUtils.formatTimestamp(state.chapterPositionMs),
-                        fontSize = 12.sp,
-                        color = bookColors.onBackgroundMuted
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Undo seek chip (matching Image 2: "Back to 06:43")
-                    if (state.undoSeekPositionMs != null) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = bookColors.undoChipBackground,
-                            modifier = Modifier.clickable(onClick = viewModel::undoSeek)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Undo,
-                                    contentDescription = "Undo Seek",
-                                    tint = bookColors.undoChipContent,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Back to ${TimeUtils.formatTimestamp(state.undoSeekPositionMs ?: 0L)}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = bookColors.undoChipContent
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-
-                    Text(
-                        text = "-${TimeUtils.formatTimestamp(state.chapterTimeRemainingMs)}",
-                        fontSize = 12.sp,
-                        color = bookColors.onBackgroundMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Main Controls: Curved Rewind, Morphing Play/Pause, Curved Forward
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Curved Rewind Button (e.g. ↺ 20)
-                    CircularSkipButton(
-                        seconds = skipSeconds,
-                        isForward = false,
-                        onClick = viewModel::skipBackward,
-                        size = 58.dp,
-                        containerColor = bookColors.skipButtonBackground,
-                        contentColor = bookColors.skipButtonContent
-                    )
-
-                    Spacer(modifier = Modifier.width(28.dp))
-
-                    // Large Morphing Play/Pause Button
-                    MorphingPlayPauseButton(
-                        isPlaying = state.isPlaying,
-                        onClick = viewModel::togglePlayPause,
-                        size = 84.dp,
-                        iconSize = 40.dp,
-                        containerColor = bookColors.playButtonContainer,
-                        contentColor = bookColors.playButtonContent
-                    )
-
-                    Spacer(modifier = Modifier.width(28.dp))
-
-                    // Curved Forward Button (e.g. ↻ 20)
-                    CircularSkipButton(
-                        seconds = skipSeconds,
-                        isForward = true,
-                        onClick = viewModel::skipForward,
-                        size = 58.dp,
-                        containerColor = bookColors.skipButtonBackground,
-                        contentColor = bookColors.skipButtonContent
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Bottom Pill Toolbar (matching Images 2 & 3)
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = bookColors.bottomToolbarContainer,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 24.dp)
+                        .navigationBarsPadding(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
+                            .weight(0.38f)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        // 1. Sleep Timer (live countdown chip e.g. "29:57" when active)
-                        if (state.sleepTimerIsActive && state.sleepTimerRemainingMs != null) {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color.White.copy(alpha = 0.25f),
-                                modifier = Modifier.clickable { showSleepSheet = true }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bedtime,
-                                        contentDescription = "Sleep Timer Active",
-                                        tint = bookColors.bottomToolbarContent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = TimeUtils.formatTimestamp(state.sleepTimerRemainingMs ?: 0L),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = bookColors.bottomToolbarContent
-                                    )
-                                }
-                            }
-                        } else {
-                            IconButton(onClick = { showSleepSheet = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Bedtime,
-                                    contentDescription = "Sleep Timer",
-                                    tint = bookColors.bottomToolbarContent
-                                )
-                            }
-                        }
+                        BookCoverArt(
+                            title = book?.title ?: "Evenfall",
+                            author = book?.author ?: "",
+                            coverPath = book?.coverUri,
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.size(160.dp)
+                        )
+                    }
 
-                        // 2. Playback Speed
-                        IconButton(onClick = { showSpeedSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Speed,
-                                contentDescription = "Playback Speed: ${state.playbackSpeed}x",
-                                tint = bookColors.bottomToolbarContent
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(16.dp))
 
-                        // 3. Bookmarks & History
-                        IconButton(onClick = { book?.let { onOpenBookmarks(it.id) } }) {
-                            Icon(
-                                imageVector = Icons.Default.Bookmark,
-                                contentDescription = "Bookmarks and History",
-                                tint = bookColors.bottomToolbarContent
-                            )
-                        }
-
-                        // 4. Silence Skipping
-                        IconButton(onClick = viewModel::toggleSilenceSkipping) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCut,
-                                contentDescription = "Silence Skipping",
-                                tint = if (state.silenceSkippingEnabled) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.5f)
-                            )
-                        }
-
-                        // 5. Volume Boost
-                        IconButton(onClick = { showVolumeBoostSheet = true }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Volume Boost",
-                                tint = if (state.volumeBoostLevel > 0f) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.7f)
-                            )
-                        }
+                    Column(
+                        modifier = Modifier
+                            .weight(0.62f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        PlayerContent(
+                            book = book,
+                            chapter = chapter,
+                            state = state,
+                            skipSeconds = skipSeconds,
+                            compactPlayer = compactPlayer,
+                            bookColors = bookColors,
+                            isDark = isDark,
+                            hasMultipleChapters = hasMultipleChapters,
+                            hasManyChapters = hasManyChapters,
+                            totalChapters = totalChapters,
+                            currentChapterIdx = currentChapterIdx,
+                            showUndoChip = showUndoChip,
+                            showCover = false,
+                            isLandscape = true,
+                            onOpenChapterSheet = { showChapterSheet = true },
+                            onSeekToFraction = viewModel::seekToFraction,
+                            onUndoSeek = {
+                                viewModel.undoSeek()
+                                showUndoChip = false
+                            },
+                            onPreviousChapter = viewModel::previousChapter,
+                            onSkipBackward = viewModel::skipBackward,
+                            onTogglePlayPause = viewModel::togglePlayPause,
+                            onSkipForward = viewModel::skipForward,
+                            onNextChapter = viewModel::nextChapter,
+                            onSleepClick = { showSleepSheet = true },
+                            onSpeedClick = { showSpeedSheet = true },
+                            onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
+                            onMoreClick = { showPlaybackOptionsSheet = true },
+                            onSilenceToggle = viewModel::toggleSilenceSkipping,
+                            onVolumeBoostClick = { showVolumeBoostSheet = true }
+                        )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                // PORTRAIT LAYOUT
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 24.dp)
+                        .navigationBarsPadding(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    PlayerContent(
+                        book = book,
+                        chapter = chapter,
+                        state = state,
+                        skipSeconds = skipSeconds,
+                        compactPlayer = compactPlayer,
+                        bookColors = bookColors,
+                        isDark = isDark,
+                        hasMultipleChapters = hasMultipleChapters,
+                        hasManyChapters = hasManyChapters,
+                        totalChapters = totalChapters,
+                        currentChapterIdx = currentChapterIdx,
+                        showUndoChip = showUndoChip,
+                        onOpenChapterSheet = { showChapterSheet = true },
+                        onSeekToFraction = viewModel::seekToFraction,
+                        onUndoSeek = {
+                            viewModel.undoSeek()
+                            showUndoChip = false
+                        },
+                        onPreviousChapter = viewModel::previousChapter,
+                        onSkipBackward = viewModel::skipBackward,
+                        onTogglePlayPause = viewModel::togglePlayPause,
+                        onSkipForward = viewModel::skipForward,
+                        onNextChapter = viewModel::nextChapter,
+                        onSleepClick = { showSleepSheet = true },
+                        onSpeedClick = { showSpeedSheet = true },
+                        onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
+                        onMoreClick = { showPlaybackOptionsSheet = true },
+                        onSilenceToggle = viewModel::toggleSilenceSkipping,
+                        onVolumeBoostClick = { showVolumeBoostSheet = true }
+                    )
+                }
             }
         }
 
@@ -614,6 +422,99 @@ fun PlayerScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Playback Options Bottom Sheet (Silence Skipping + Volume Boost)
+        if (showPlaybackOptionsSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showPlaybackOptionsSheet = false },
+                sheetState = rememberModalBottomSheetState()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .navigationBarsPadding()
+                ) {
+                    Text(
+                        text = "Playback options",
+                        fontFamily = SerifFont,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Silence skipping toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Silence skipping",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Automatically skip silent pauses in narration",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.silenceSkippingEnabled,
+                            onCheckedChange = { viewModel.toggleSilenceSkipping() }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Volume boost slider
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Volume boost",
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = "Boost audio level for quiet recordings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            val boostPercent = (state.volumeBoostLevel * 100).toInt()
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (boostPercent > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.padding(start = 12.dp)
+                            ) {
+                                Text(
+                                    text = if (boostPercent == 0) "Off" else "+$boostPercent%",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (boostPercent > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Slider(
+                            value = state.volumeBoostLevel,
+                            onValueChange = viewModel::setVolumeBoost,
+                            valueRange = 0f..1.0f
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
                 }
             }
         }
@@ -705,7 +606,7 @@ fun PlayerScreen(
                     Text("Playback Speed", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "${String.format("%.2f", state.playbackSpeed)}x",
+                        text = "${String.format(Locale.US, "%.2f", state.playbackSpeed)}x",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -735,7 +636,7 @@ fun PlayerScreen(
             }
         }
 
-        // Volume Boost Bottom Sheet
+        // Volume Boost Bottom Sheet (for dense mode direct tap)
         if (showVolumeBoostSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showVolumeBoostSheet = false },
@@ -767,6 +668,597 @@ fun PlayerScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerContent(
+    book: com.evenfall.app.data.db.entity.BookEntity?,
+    chapter: com.evenfall.app.data.db.entity.ChapterEntity?,
+    state: PlaybackState,
+    skipSeconds: Int,
+    compactPlayer: Boolean,
+    bookColors: PlayerBookColors,
+    isDark: Boolean,
+    hasMultipleChapters: Boolean,
+    hasManyChapters: Boolean,
+    totalChapters: Int,
+    currentChapterIdx: Int,
+    showUndoChip: Boolean,
+    showCover: Boolean = true,
+    isLandscape: Boolean = false,
+    onOpenChapterSheet: () -> Unit,
+    onSeekToFraction: (Float) -> Unit,
+    onUndoSeek: () -> Unit,
+    onPreviousChapter: () -> Unit,
+    onSkipBackward: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSkipForward: () -> Unit,
+    onNextChapter: () -> Unit,
+    onSleepClick: () -> Unit,
+    onSpeedClick: () -> Unit,
+    onBookmarksClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    onSilenceToggle: () -> Unit,
+    onVolumeBoostClick: () -> Unit
+) {
+    if (showCover) {
+        // 1. Cover Art (15-20% smaller than previous 255dp, ~205dp with more breathing room)
+        BookCoverArt(
+            title = book?.title ?: "Evenfall",
+            author = book?.author ?: "",
+            coverPath = book?.coverUri,
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.size(if (compactPlayer) 205.dp else 240.dp)
+        )
+
+        Spacer(modifier = Modifier.height(if (compactPlayer) 16.dp else 12.dp))
+    }
+
+    // 2. Title and Author: serif font, one line ellipsized, smaller size
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = book?.title ?: "Untitled",
+            fontFamily = SerifFont,
+            fontSize = if (isLandscape) 17.sp else (if (compactPlayer) 20.sp else 23.sp),
+            fontWeight = FontWeight.Bold,
+            color = bookColors.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = book?.author ?: "Unknown Author",
+            fontFamily = SerifFont,
+            fontSize = if (isLandscape) 12.sp else 14.sp,
+            color = bookColors.onBackgroundMuted,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(if (isLandscape) 2.dp else 8.dp))
+
+    // 3. Chapter Line / Pill
+    if (compactPlayer) {
+        // Compact: single tappable text button "Chapter X of N ▾", hidden when N <= 1
+        if (hasMultipleChapters) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .defaultMinSize(minHeight = if (isLandscape) 36.dp else 48.dp)
+                    .clickable(
+                        onClickLabel = "Select chapter",
+                        onClick = onOpenChapterSheet
+                    )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = if (isLandscape) 2.dp else 6.dp)
+                ) {
+                    Text(
+                        text = "Chapter ${currentChapterIdx + 1} of $totalChapters ▾",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = bookColors.onBackground
+                    )
+                    val chTitle = chapter?.title
+                    if (!chTitle.isNullOrBlank() && !chTitle.equals("Chapter ${currentChapterIdx + 1}", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = chTitle,
+                            fontSize = 11.sp,
+                            color = bookColors.onBackgroundMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        // Denser original layout: Big chapter pill with prev/next side buttons
+        if (hasManyChapters) {
+            DashedSegmentedBar(
+                totalSegments = totalChapters,
+                currentSegment = currentChapterIdx,
+                progressWithinCurrent = state.chapterProgressFraction,
+                activeColor = bookColors.activeSliderColor,
+                inactiveColor = bookColors.inactiveSliderColor,
+                barHeight = 5.dp,
+                gapWidth = 4.dp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${state.totalProgressPercent}% of book",
+                    fontSize = 12.sp,
+                    color = bookColors.onBackgroundMuted
+                )
+                Text(
+                    text = TimeUtils.formatTimeLeft(state.totalTimeRemainingMs),
+                    fontSize = 12.sp,
+                    color = bookColors.onBackgroundMuted
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = bookColors.cardBackground,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onPreviousChapter,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SkipPrevious,
+                        contentDescription = "Previous Chapter",
+                        tint = bookColors.onBackground
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onOpenChapterSheet),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Chapter ${currentChapterIdx + 1} of $totalChapters",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = bookColors.onBackgroundMuted
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = chapter?.title ?: "Chapter ${currentChapterIdx + 1}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = bookColors.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = bookColors.onBackground,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onNextChapter,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SkipNext,
+                        contentDescription = "Next Chapter",
+                        tint = bookColors.onBackground
+                    )
+                }
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 10.dp))
+
+    // 4. Temporary "Back to mm:ss" undo chip positioned ABOVE seek slider (centered)
+    AnimatedVisibility(
+        visible = showUndoChip && state.undoSeekPositionMs != null,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = bookColors.undoChipBackground,
+            modifier = Modifier
+                .defaultMinSize(minHeight = 44.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(
+                    onClickLabel = "Undo seek",
+                    onClick = onUndoSeek
+                )
+                .padding(bottom = 6.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = "Undo seek",
+                    tint = bookColors.undoChipContent,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Back to ${TimeUtils.formatTimestamp(state.undoSeekPositionMs ?: 0L)}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = bookColors.undoChipContent
+                )
+            }
+        }
+    }
+
+    // 5. Seek Slider (wavy while playing, flat when paused)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        WavyProgressLine(
+            progress = state.chapterProgressFraction,
+            onSeek = onSeekToFraction,
+            isPlaying = state.isPlaying,
+            activeColor = bookColors.activeSliderColor,
+            inactiveColor = bookColors.inactiveSliderColor,
+            thumbColor = bookColors.activeSliderColor
+        )
+
+        // Elapsed time and remaining time on sides
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = TimeUtils.formatTimestamp(state.chapterPositionMs),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = bookColors.onBackgroundMuted
+            )
+            Text(
+                text = "-${TimeUtils.formatTimestamp(state.chapterTimeRemainingMs)}",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = bookColors.onBackgroundMuted
+            )
+        }
+
+        // Book progress: one small muted line centered under the slider (Compact mode)
+        if (compactPlayer) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${state.totalProgressPercent}% · ${TimeUtils.formatTimeLeft(state.totalTimeRemainingMs)}",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = bookColors.onBackgroundMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 18.dp))
+
+    // 6. Transport Controls: Prev Chapter, Skip Back, Play/Pause, Skip Forward, Next Chapter
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Previous Chapter (hidden if single chapter)
+        if (hasMultipleChapters) {
+            IconButton(
+                onClick = onPreviousChapter,
+                modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = "Previous Chapter",
+                    tint = bookColors.onBackgroundMuted,
+                    modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 10.dp))
+        }
+
+        // Skip Backward (tonal / muted style)
+        CircularSkipButton(
+            seconds = skipSeconds,
+            isForward = false,
+            onClick = onSkipBackward,
+            size = if (isLandscape) 42.dp else 52.dp,
+            containerColor = bookColors.cardBackground,
+            contentColor = bookColors.onBackground
+        )
+
+        Spacer(modifier = Modifier.width(if (isLandscape) 10.dp else 20.dp))
+
+        // Play/Pause (only strong accent color)
+        MorphingPlayPauseButton(
+            isPlaying = state.isPlaying,
+            onClick = onTogglePlayPause,
+            size = if (isLandscape) 56.dp else 80.dp,
+            iconSize = if (isLandscape) 26.dp else 38.dp,
+            containerColor = bookColors.playButtonContainer,
+            contentColor = bookColors.playButtonContent
+        )
+
+        Spacer(modifier = Modifier.width(if (isLandscape) 10.dp else 20.dp))
+
+        // Skip Forward (tonal / muted style)
+        CircularSkipButton(
+            seconds = skipSeconds,
+            isForward = true,
+            onClick = onSkipForward,
+            size = if (isLandscape) 42.dp else 52.dp,
+            containerColor = bookColors.cardBackground,
+            contentColor = bookColors.onBackground
+        )
+
+        // Next Chapter (hidden if single chapter)
+        if (hasMultipleChapters) {
+            Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 10.dp))
+            IconButton(
+                onClick = onNextChapter,
+                modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Next Chapter",
+                    tint = bookColors.onBackgroundMuted,
+                    modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
+                )
+            }
+        }
+    }
+
+    // Spacing between controls and toolbar (at least 24dp in portrait, compact in landscape)
+    Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 28.dp))
+
+    // 7. Bottom Toolbar
+    if (compactPlayer) {
+        // Compact: Low-contrast tonal container with 4 actions (Sleep, Speed, Bookmarks, More)
+        CompactBottomToolbar(
+            state = state,
+            bookColors = bookColors,
+            isDark = isDark,
+            isLandscape = isLandscape,
+            onSleepClick = onSleepClick,
+            onSpeedClick = onSpeedClick,
+            onBookmarksClick = onBookmarksClick,
+            onMoreClick = onMoreClick
+        )
+    } else {
+        // Dense original: 5-action toolbar
+        DenseBottomToolbar(
+            state = state,
+            bookColors = bookColors,
+            onSleepClick = onSleepClick,
+            onSpeedClick = onSpeedClick,
+            onBookmarksClick = onBookmarksClick,
+            onSilenceToggle = onSilenceToggle,
+            onVolumeBoostClick = onVolumeBoostClick
+        )
+    }
+
+    Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 10.dp))
+}
+
+@Composable
+private fun CompactBottomToolbar(
+    state: PlaybackState,
+    bookColors: PlayerBookColors,
+    isDark: Boolean,
+    isLandscape: Boolean = false,
+    onSleepClick: () -> Unit,
+    onSpeedClick: () -> Unit,
+    onBookmarksClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val toolbarBg = bookColors.cardBackground
+    val hasActiveOptions = state.silenceSkippingEnabled || state.volumeBoostLevel > 0f
+
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = toolbarBg,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(if (isLandscape) 48.dp else 56.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Sleep Timer (live countdown chip e.g. "29:57" when active)
+            if (state.sleepTimerIsActive && state.sleepTimerRemainingMs != null) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = bookColors.playButtonContainer.copy(alpha = 0.2f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(
+                            onClickLabel = "Sleep timer active",
+                            onClick = onSleepClick
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bedtime,
+                            contentDescription = "Sleep timer active",
+                            tint = bookColors.onBackground,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = TimeUtils.formatTimestamp(state.sleepTimerRemainingMs),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = bookColors.onBackground
+                        )
+                    }
+                }
+            } else {
+                IconButton(onClick = onSleepClick) {
+                    Icon(
+                        imageVector = Icons.Default.Bedtime,
+                        contentDescription = "Sleep timer",
+                        tint = bookColors.onBackground
+                    )
+                }
+            }
+
+            // 2. Playback speed (shows current value e.g. "1.0x")
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.Transparent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(
+                        onClickLabel = "Change playback speed",
+                        onClick = onSpeedClick
+                    )
+            ) {
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${String.format(Locale.US, "%.1f", state.playbackSpeed)}x",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = bookColors.onBackground
+                    )
+                }
+            }
+
+            // 3. Bookmarks
+            IconButton(onClick = onBookmarksClick) {
+                Icon(
+                    imageVector = Icons.Default.Bookmark,
+                    contentDescription = "Bookmarks and History",
+                    tint = bookColors.onBackground
+                )
+            }
+
+            // 4. More (opens Playback options sheet, shows dot indicator if active)
+            Box(contentAlignment = Alignment.Center) {
+                IconButton(onClick = onMoreClick) {
+                    Icon(
+                        imageVector = Icons.Default.MoreHoriz,
+                        contentDescription = "Playback options",
+                        tint = bookColors.onBackground
+                    )
+                }
+                if (hasActiveOptions) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 10.dp, end = 10.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(bookColors.playButtonContainer)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DenseBottomToolbar(
+    state: PlaybackState,
+    bookColors: PlayerBookColors,
+    onSleepClick: () -> Unit,
+    onSpeedClick: () -> Unit,
+    onBookmarksClick: () -> Unit,
+    onSilenceToggle: () -> Unit,
+    onVolumeBoostClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = bookColors.bottomToolbarContainer,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onSleepClick) {
+                Icon(
+                    imageVector = Icons.Default.Bedtime,
+                    contentDescription = "Sleep timer",
+                    tint = bookColors.bottomToolbarContent
+                )
+            }
+            IconButton(onClick = onSpeedClick) {
+                Icon(
+                    imageVector = Icons.Default.Speed,
+                    contentDescription = "Playback Speed: ${state.playbackSpeed}x",
+                    tint = bookColors.bottomToolbarContent
+                )
+            }
+            IconButton(onClick = onBookmarksClick) {
+                Icon(
+                    imageVector = Icons.Default.Bookmark,
+                    contentDescription = "Bookmarks and History",
+                    tint = bookColors.bottomToolbarContent
+                )
+            }
+            IconButton(onClick = onSilenceToggle) {
+                Icon(
+                    imageVector = Icons.Default.ContentCut,
+                    contentDescription = "Silence Skipping",
+                    tint = if (state.silenceSkippingEnabled) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.5f)
+                )
+            }
+            IconButton(onClick = onVolumeBoostClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = "Volume Boost",
+                    tint = if (state.volumeBoostLevel > 0f) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.7f)
+                )
             }
         }
     }

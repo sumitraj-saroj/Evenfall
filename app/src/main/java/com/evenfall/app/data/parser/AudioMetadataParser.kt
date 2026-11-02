@@ -15,7 +15,8 @@ data class ParsedMetadata(
     val author: String,
     val durationMs: Long,
     val coverPath: String?,
-    val trackNumber: Int? = null
+    val trackNumber: Int? = null,
+    val album: String? = null
 )
 
 data class ParsedChapter(
@@ -31,12 +32,20 @@ class AudioMetadataParser @Inject constructor(
 ) {
     private val coversDir = File(context.cacheDir, "book_covers").apply { mkdirs() }
 
-    fun parseFileMetadata(uri: Uri, fallbackTitle: String): ParsedMetadata {
+    fun parseFileMetadata(uri: Uri, fallbackTitle: String, folderName: String? = null): ParsedMetadata {
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, uri)
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                ?.trim()?.ifEmpty { null } ?: fallbackTitle
+            val rawTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.trim()?.ifEmpty { null }
+            val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                ?.trim()?.ifEmpty { null }
+            val title = TitleSanitizer.resolveTitle(
+                titleTag = rawTitle,
+                albumTag = album,
+                folderName = folderName,
+                fileName = fallbackTitle
+            )
             val author = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_AUTHOR)
@@ -61,14 +70,17 @@ class AudioMetadataParser @Inject constructor(
                 author = author.trim(),
                 durationMs = durationMs,
                 coverPath = coverPath,
-                trackNumber = trackNumber
+                trackNumber = trackNumber,
+                album = album
             )
         } catch (_: Exception) {
+            val resolvedFallback = TitleSanitizer.resolveTitle(null, null, folderName, fallbackTitle)
             ParsedMetadata(
-                title = fallbackTitle,
+                title = resolvedFallback,
                 author = "Unknown Author",
                 durationMs = 0L,
-                coverPath = null
+                coverPath = null,
+                album = null
             )
         } finally {
             try {

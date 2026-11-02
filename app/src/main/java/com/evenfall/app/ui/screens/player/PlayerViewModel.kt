@@ -39,6 +39,13 @@ class PlayerViewModel @Inject constructor(
             initialValue = 20
         )
 
+    val compactPlayer: StateFlow<Boolean> = preferencesManager.compactPlayer
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
     init {
         val bookId: Long? = savedStateHandle["bookId"]
         if (bookId != null && bookId > 0) {
