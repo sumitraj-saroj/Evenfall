@@ -16,6 +16,7 @@ import androidx.navigation.navArgument
 import com.evenfall.app.ui.navigation.Screen
 import com.evenfall.app.ui.screens.home.HomeScreen
 import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
+import com.evenfall.app.ui.screens.player.PlayerScreen
 import com.evenfall.app.ui.theme.EvenfallTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -73,7 +74,14 @@ fun EvenfallAppNav() {
             route = Screen.Player.route,
             arguments = listOf(navArgument("bookId") { type = NavType.LongType })
         ) {
-            // Placeholder - will be implemented in Milestone 4
+            PlayerScreen(
+                onCollapse = {
+                    navController.popBackStack()
+                },
+                onOpenBookmarks = { bookId ->
+                    navController.navigate(Screen.BookmarksHistory.createRoute(bookId))
+                }
+            )
         }
 
         composable(
