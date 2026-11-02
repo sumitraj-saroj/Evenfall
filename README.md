@@ -2,103 +2,141 @@
 
 > A calm, offline-first native Android audiobook player for local files.
 
-Evenfall is an elegant, privacy-first audiobook player built specifically for listening to local audio files. It scans your chosen folder, organizes multi-file and single-file audiobooks, extracts chapter metadata, remembers exact playback positions continuously, and provides a tranquil listening experience with Material 3 Expressive design, dynamic book-matching themes, and zero tracking.
+Evenfall is an elegant, privacy-first native Android audiobook player built specifically for listening to local audio files. It scans your chosen folder, organizes multi-file and single-file audiobooks, extracts chapter metadata, remembers exact playback positions continuously, and provides a tranquil listening experience with Material 3 Expressive design, dynamic book-matching themes, and zero tracking.
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Features & Design Matching
 
-- **100% Offline & Private**: Zero network permission (`android.permission.INTERNET` is omitted). No telemetry, no ads, no cloud logins.
-- **Smart Folder Scanning**: Storage Access Framework (SAF) folder picker with persisted permissions. Supports both single-file M4B/M4A audiobooks with chapter markers and multi-file books ordered naturally.
-- **Continuous Position Memory**: Automatically records playback positions every few seconds, on pause, and on process death so you never lose your place.
-- **Material 3 Expressive UI**: Features cookie/scalloped shapes, morphing play/pause buttons, and smooth wavy progress indicators.
-- **Dynamic Book Theming**: Dynamically extracts colors from book cover artwork to theme the player in light and dark modes (e.g. amber for sunset covers, deep blue for space covers).
-- **Audiobook-Tuned Playback (Media3 & ExoPlayer)**:
-  - Speech-optimized audio focus (pause on incoming calls, ducking, logging interruption length)
-  - Variable speed playback (0.5x – 3.0x with preserved pitch) and per-book speed memory
-  - Silence skipping powered by Media3 audio processor
-  - Volume boost via `LoudnessEnhancer`
-  - Auto-rewind after pause based on pause duration
-  - Sleep timer with smooth volume fade-out and accelerometer shake-to-extend
-- **Rich Bookmarks & Listening History**:
-  - Chapter-grouped bookmarks with custom tags (Notes, Favorites, Quotes, Moments)
-  - Visual timeline with bookmark markers and "You are here" indicator
-  - Comprehensive history tracking (Played, Paused, Interrupted, Sleep Timer, Shake to Extend) with one-tap position restoration
-- **Home Screen Widgets (Jetpack Glance)**:
-  - Large Now Playing widget with cookie cover, wavy progress bar, and media controls
-  - Continue Listening shelf widget with recent book covers and instant play
-- **Android Auto**:
-  - Driver-safe MediaLibraryService with browsable library (Continue Listening, All Books, Chapters)
+Evenfall faithfully recreates all 8 design reference screens:
+
+1. **Onboarding & Smart Folder Scanning** (Screenshot 8):
+   - "Add a folder. Evenfall does the rest." with SAF tree URI permission persistence.
+   - Live preview showing "We found N books" with the caption "Every folder or file in Audiobooks is a book".
+   - Letter avatars in cookie/scalloped shapes (`CookieShape`), duration, author, and audio file count.
+   - Primary button "Add N books" and bottom sheet "Change how books are found" (Subfolder = book vs File = book).
+   - Animated wavy progress indicator and floating sparkles.
+   - Handles added, renamed, or removed files without losing positions.
+
+2. **Home & Library** (Screenshot 1):
+   - Search bar "Search your library" with settings shortcut.
+   - Time-based greeting ("Good morning", "Good afternoon", "Good evening") and "N books in progress".
+   - Large **Continue listening** hero card with gradient background, rounded cover art, "% of book", time left, progress bar, and cookie-shaped play button.
+   - "Current" section with count badge, progress bars, and remaining time.
+   - Expandable "Not started" and "Finished" sections with library sorting (Recently played, Title, Author, Duration).
+
+3. **Now Playing Screen** (Screenshots 2 & 3):
+   - Dynamic per-book palette theming (Warm golden amber for *Beyond the Horizon*, Deep cosmic blue for *Echoes of Tomorrow*, Evenfall blue default). Supports light and dark modes.
+   - Top bar: Collapse chevron, chapter list button, and overflow menu.
+   - Large rounded cover art (~265dp) with serif title and author typography.
+   - **Segmented Dashed Bar**: one segment per chapter, filled up to the current chapter, showing "% of book" on left and "time left" on right.
+   - **Chapter Selector Pill**: Previous chapter, "Chapter X of N" with chapter title and dropdown chevron, and Next chapter.
+   - **Chapter Seek Slider**: Wavy animated line while playing; flat line when paused. Elapsed time on left, remaining as "−mm:ss" on right.
+   - **"Back to mm:ss" Chip**: Appears after seeking so the listener can easily undo accidental jumps.
+   - **Morphing Play/Pause Button**: Scalloped cookie shape when paused; rounded square when playing with smooth spring animation.
+   - **Bottom Pill Toolbar**:
+     - Sleep timer (moon icon; live countdown chip like "29:57" when active)
+     - Playback speed (gauge icon; 0.5x–3.0x in fine steps, pitch preserved, per-book memory)
+     - Bookmarks (quick-jump to bookmarks and timeline)
+     - Silence skipping (scissors icon; Media3 audio processor)
+     - Volume boost (speaker-plus icon; `LoudnessEnhancer` with safe dB floor)
+
+4. **Bookmarks** (Screenshot 4):
+   - Header with book title and author in serif font, sort options, and segmented tabs ("Bookmarks (count)" and "History").
+   - Mini timeline of the whole book with floating markers above segments (heart, quote "99", note star, bookmark) and "You are here" indicator ring.
+   - Filter chips: All, Notes, Favorites, Quotes.
+   - Chapter-grouped cards with relative timestamps ("Sep 12", "Thu", "Yesterday").
+   - Extended FAB: "Save this moment" with custom title, note, and type selector.
+
+5. **History** (Screenshot 5):
+   - Time-grouped sections ("This morning", "Last night", etc.).
+   - Vertical connected timeline nodes: Played, Paused, Interrupted for N min (phone calls / notifications), Sleep timer on, Sleep timer ended, Shook to keep listening.
+   - Clickable position chips ("Ch. 12 · 34:18") allowing one-tap recovery of lost places.
+   - Automatic history pruning (retaining last 30 days / 100 events per book).
+
+6. **Home-Screen Widgets (Jetpack Glance)** (Screenshot 6):
+   - **Now Playing Widget**: Cookie-cropped cover, title, "🌙 Stops at 11:11 PM", wavy progress line, "Ch. 12 of 24", time left, and rewind / play-pause / forward controls.
+   - **Continue Listening Widget**: Horizontal shelf of book covers with progress bars and instant resume.
+
+7. **Settings** (Screenshot 7):
+   - Subtitle: "Make Evenfall yours".
+   - Appearance:
+     - Theme selector with preview cards (Follow system, Light, Dark).
+     - Pure black OLED toggle for battery savings.
+     - Color scheme swatches (Evenfall blue default, Dynamic / Material You, Teal, Green, Orange, Pink, Purple).
+   - Listening:
+     - Skip amount stepper (`[-]` and `[+]` with live button preview, default 20 seconds).
+     - Auto-rewind after pause toggle (rewinds proportionally to pause duration).
+     - Shake-to-extend accelerometer toggle.
+   - Library & Backup: Rescan audiobooks, export JSON backup via SAF.
+   - About: Evenfall v1.0.0, open-source licenses, 100% offline guarantee.
+
+8. **Android Auto**:
+   - `MediaLibraryService` with driver-safe browsable catalog (Continue Listening, All Books, Chapters).
+   - Compliant with Android automotive media standards (`@xml/automotive_app_desc`).
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## 🔒 Privacy & Offline Architecture
 
-Evenfall follows Android modern development best practices: Single Activity architecture, MVVM with Unidirectional Data Flow (UDF), and clean modular separation.
+- **Zero Network Permissions**: The `android.permission.INTERNET` permission is completely omitted from `AndroidManifest.xml`.
+- **Zero Cloud & Telemetry**: No analytics SDKs, no cloud sync, no accounts.
+- **Storage Access Framework (SAF)**: Persisted tree URIs (`ACTION_OPEN_DOCUMENT_TREE`) without requesting broad filesystem storage permissions (`READ_EXTERNAL_STORAGE` / `MANAGE_EXTERNAL_STORAGE`).
 
-- **Language & Runtime**: Kotlin 2.3+, Coroutines, StateFlow / SharedFlow
-- **UI**: Jetpack Compose, Material 3, Material 3 Expressive shapes & animations
-- **Media Playback**: AndroidX Media3 (`media3-exoplayer`, `media3-session`, `media3-ui`) with `MediaLibraryService`
-- **Database & Storage**:
-  - Room 2.7+ (Books, Chapters, Bookmarks, History events)
-  - Jetpack DataStore (User preferences and playback settings)
-  - Storage Access Framework (SAF) for persistent tree URIs
-- **Dependency Injection**: Hilt (Dagger)
-- **Image Loading**: Coil Compose
-- **Home Screen Widgets**: Jetpack Glance
-- **Testing**: JUnit 4, Kotlinx Coroutines Test, Compose UI Testing
+---
+
+## 🏛️ Code Architecture
 
 ```
 app/src/main/java/com/evenfall/app/
 ├── data/
-│   ├── db/              # Room database, entities (Book, Chapter, Bookmark, History), DAOs
-│   ├── datastore/       # DataStore preferences & settings repository
-│   ├── parser/          # Audio metadata & chapter extractor (M4B, MP3, Vorbis, AAC)
-│   ├── repository/      # Library, bookmark, history, and playback repositories
-│   └── scanner/         # SAF DocumentFile audiobook library scanner
-├── di/                  # Hilt dependency injection modules
-├── domain/              # Domain models, state definitions, business logic
-├── playback/            # Media3 MediaLibraryService, ExoPlayer wrapper, sleep timer, auto-rewind
+│   ├── datastore/       # DataStore preferences (theme, skip amount, scan mode)
+│   ├── db/              # Room Database (EvenfallDatabase)
+│   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao
+│   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity
+│   ├── parser/          # AudioMetadataParser & natural order filename sorter
+│   ├── repository/      # LibraryRepository
+│   ├── scanner/         # LibraryScanner (SAF DocumentFile scanner)
+│   └── DemoDataSeeder.kt# Sample book seeder matching screenshots
+├── di/                  # Hilt Dependency Injection (DatabaseModule)
+├── playback/            # Media3 MediaLibraryService, PlaybackManager, ShakeDetector
 ├── ui/
-│   ├── components/      # CookieShape, WavyProgress, MorphButton, SeekUndoChip
-│   ├── navigation/      # Compose Navigation graph and destinations
+│   ├── components/      # CookieShape, WavyProgressLine, MorphingPlayPauseButton
+│   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings)
 │   ├── screens/
-│   │   ├── onboarding/  # Add folder & scan preview (Image 8)
-│   │   ├── home/        # Library, greeting, continue listening hero card (Image 1)
-│   │   ├── player/      # Now playing screen, dynamic theme (Images 2 & 3)
-│   │   ├── bookmarks/   # Bookmarks and History timeline screens (Images 4 & 5)
-│   │   └── settings/    # Appearance, listening settings, about (Image 7)
-│   └── theme/           # Evenfall color schemes, serif typography, expressive shapes
-└── widget/              # Jetpack Glance widgets (Image 6)
+│   │   ├── bookmarks/   # BookmarksHistoryScreen & BookmarksTimeline
+│   │   ├── home/        # HomeScreen & ContinueListeningHeroCard
+│   │   ├── onboarding/  # OnboardingScreen & ScannedBookPreview
+│   │   ├── player/      # PlayerScreen & PlayerTheming
+│   │   └── settings/    # SettingsScreen & ThemePreviewCard
+│   └── theme/           # Color, Shape, Type (Serif typography), Theme
+├── util/                # TimeUtils
+└── widget/              # Glance widgets (NowPlayingWidget, ContinueListeningWidget)
 ```
 
 ---
 
-## 🛠️ Build & Run
+## 🛠️ Build & Installation
 
 ### Prerequisites
 - JDK 17 or JDK 21
-- Android SDK with platform `android-35` or `android-36` and Build Tools 35.0.0+
+- Android SDK with platform `android-36` and Build Tools 36.0.0
 
-### Setup `local.properties`
-Create `local.properties` in the root directory:
-```properties
-sdk.dir=/path/to/your/android/sdk
+### Run Tests
+```bash
+./gradlew test
 ```
 
-### Build Commands
+### Build APKs
 ```bash
-# Build debug APK
+# Debug APK: app/build/outputs/apk/debug/app-debug.apk
 ./gradlew assembleDebug
 
-# Run unit tests
-./gradlew test
-
-# Install on connected device/emulator
-./gradlew installDebug
+# Release APK: app/build/outputs/apk/release/app-release-unsigned.apk
+./gradlew assembleRelease
 ```
 
----
-
-## 📄 License
-Open source under the Apache License 2.0.
+### Install on Device / Emulator
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
