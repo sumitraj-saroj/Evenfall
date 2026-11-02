@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.evenfall.app.ui.navigation.Screen
+import com.evenfall.app.ui.screens.home.HomeScreen
+import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
 import com.evenfall.app.ui.theme.EvenfallTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -33,19 +37,54 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun EvenfallAppNav() {
     val navController = rememberNavController()
-    // Scaffold navigation
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
     ) {
         composable(Screen.Home.route) {
-            // Placeholder for Milestone 1 scaffold
+            HomeScreen(
+                onOpenBook = { bookId ->
+                    navController.navigate(Screen.Player.createRoute(bookId))
+                },
+                onOpenSettings = {
+                    navController.navigate(Screen.Settings.route)
+                },
+                onOpenAddFolder = {
+                    navController.navigate(Screen.Onboarding.route)
+                }
+            )
         }
+
         composable(Screen.Onboarding.route) {
-            // Placeholder for Milestone 1 scaffold
+            OnboardingScreen(
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
         }
+
+        composable(
+            route = Screen.Player.route,
+            arguments = listOf(navArgument("bookId") { type = NavType.LongType })
+        ) {
+            // Placeholder - will be implemented in Milestone 4
+        }
+
+        composable(
+            route = Screen.BookmarksHistory.route,
+            arguments = listOf(navArgument("bookId") { type = NavType.LongType })
+        ) {
+            // Placeholder - will be implemented in Milestone 6
+        }
+
         composable(Screen.Settings.route) {
-            // Placeholder for Milestone 1 scaffold
+            // Placeholder - will be implemented in Milestone 7
         }
     }
 }
