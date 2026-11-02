@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Crescent Moon -->
+    <path
+        android:fillColor="#E3F2FD"
+        android:pathData="M52,30 C41,30 32,39 32,50 C32,61 41,70 52,70 C56,70 60,68.8 63,67 C54,64 48,56 48,48 C48,40 54,33 63,33 C60,31.2 56,30 52,30 Z" />
+    
+    <!-- Soft Audio Wave across/below crescent -->
+    <path
+        android:strokeColor="#90CAF9"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M30,76 C36,73 40,79 46,76 C52,73 56,79 62,76 C68,73 72,79 78,76" />
+
+    <!-- Small celestial star sparkle -->
+    <path
+        android:fillColor="#FFF9C4"
+        android:pathData="M68,36 C68,39 71,42 74,42 C71,42 68,45 68,48 C68,45 65,42 62,42 C65,42 68,39 68,36 Z" />
+</vector>

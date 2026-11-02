@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Evenfall</string>
+    <string name="media_notification_channel_name">Evenfall Playback</string>
+    <string name="media_notification_channel_description">Playback controls for Evenfall audiobooks</string>
+</resources>

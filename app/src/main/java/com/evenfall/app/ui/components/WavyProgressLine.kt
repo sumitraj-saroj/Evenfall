@@ -1,0 +1,150 @@
+package com.evenfall.app.ui.components
+
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.sin
+
+/**
+ * Material 3 Expressive wavy progress line.
+ * When isPlaying is true, the played portion is rendered as an organic, gently oscillating wave.
+ * When paused, it renders as a calm flat line.
+ */
+@Composable
+fun WavyProgressLine(
+    progress: Float, // 0f .. 1f
+    onSeek: ((Float) -> Unit)? = null,
+    isPlaying: Boolean = false,
+    activeColor: Color = MaterialTheme.colorScheme.primary,
+    inactiveColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+    thumbColor: Color = MaterialTheme.colorScheme.primary,
+    strokeWidth: Dp = 4.dp,
+    waveAmplitude: Dp = 5.dp,
+    waveLength: Dp = 24.dp,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "waveAnimation")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    var isDragging by remember { mutableFloatStateOf(0f) }
+
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .then(
+                if (onSeek != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val newProgress = (offset.x / size.width).coerceIn(0f, 1f)
+                            onSeek(newProgress)
+                        }
+                    }.pointerInput(Unit) {
+                        detectHorizontalDragGestures { change, _ ->
+                            change.consume()
+                            val newProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            onSeek(newProgress)
+                        }
+                    }
+                } else Modifier
+            )
+    ) {
+        val width = size.width
+        val height = size.height
+        val centerY = height / 2f
+        val currentProgress = progress.coerceIn(0f, 1f)
+        val splitX = width * currentProgress
+
+        val strokePx = strokeWidth.toPx()
+        val ampPx = waveAmplitude.toPx()
+        val lengthPx = waveLength.toPx()
+
+        // 1. Draw Inactive / Remaining Line (flat line)
+        if (splitX < width) {
+            drawLine(
+                color = inactiveColor,
+                start = Offset(splitX, centerY),
+                end = Offset(width, centerY),
+                strokeWidth = strokePx,
+                cap = StrokeCap.Round
+            )
+        }
+
+        // 2. Draw Active / Played Line (wavy if playing, flat if paused)
+        if (splitX > 0f) {
+            if (isPlaying && ampPx > 0f) {
+                val wavePath = Path()
+                wavePath.moveTo(0f, centerY)
+
+                val stepPx = 3f
+                var x = 0f
+                while (x <= splitX) {
+                    val relativeX = x / lengthPx * (2 * PI).toFloat()
+                    val y = centerY + ampPx * sin(relativeX - phase)
+                    wavePath.lineTo(x, y)
+                    x += stepPx
+                }
+                wavePath.lineTo(splitX, centerY)
+
+                drawPath(
+                    path = wavePath,
+                    color = activeColor,
+                    style = Stroke(
+                        width = strokePx,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
+                )
+            } else {
+                drawLine(
+                    color = activeColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(splitX, centerY),
+                    strokeWidth = strokePx,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // Draw thumb indicator at splitX
+            val thumbRadius = strokePx * 1.5f
+            drawCircle(
+                color = thumbColor,
+                radius = thumbRadius,
+                center = Offset(splitX, centerY)
+            )
+        }
+    }
+}
