@@ -8,7 +8,7 @@ Evenfall is an elegant, privacy-first native Android audiobook player built spec
 
 ## 🌟 Key Features & Design Matching
 
-Evenfall faithfully recreates all 8 design reference screens:
+Evenfall faithfully recreates all 8 design reference screens along with essential everyday usability capabilities:
 
 1. **Onboarding & Smart Folder Scanning** (Screenshot 8):
    - "Add a folder. Evenfall does the rest." with SAF tree URI permission persistence.
@@ -24,8 +24,39 @@ Evenfall faithfully recreates all 8 design reference screens:
    - Large **Continue listening** hero card with gradient background, rounded cover art, "% of book", time left, progress bar, and cookie-shaped play button.
    - "Current" section with count badge, progress bars, and remaining time.
    - Expandable "Not started" and "Finished" sections with library sorting (Recently played, Title, Author, Duration).
+   - **Swipe Actions**: Swipe book rows to mark as finished or not started directly from the library.
+   - **Lost-Folder Recovery Banner**: Non-blocking warning banner when folders are moved or unmounted, with direct shortcut to the "Fix library" screen.
 
-3. **Now Playing Screen** (Screenshots 2 & 3):
+3. **Persistent Mini Player**:
+   - Floating mini player above the bottom edge on Home, Library, and Bookmarks screens whenever a book is loaded.
+   - Cookie-cropped 12-lobe cover art, single-line serif title, chapter label, thin wavy progress line, 48dp skip-back and play/pause controls.
+   - **Gestures**: Tap or swipe up expands smoothly to the Now Playing screen; horizontal or down swipe dismisses the mini player and persists playback position.
+   - Styled with per-book dynamic theme colors and survives process death.
+
+4. **Manual Metadata Editing & Room Overrides**:
+   - "Edit details" dialog accessible from book overflow menus on Library and Player screens.
+   - Edit title, author, narrator, series name, series number, and custom cover images (downsampled and stored in app-private storage).
+   - Per-chapter title renaming dialog in the Now Playing chapter list.
+   - Stored as safe non-destructive overrides in Room. Never touches audio files; survives rescans and app restarts; fully reversible with "Reset to original".
+
+5. **Folder-Image Covers & Precedence Resolution**:
+   - Strict resolution order: Manual override ➔ Embedded ID3 art ➔ Book folder images (`cover.*` > `folder.*` > `front.*` > `albumart*` in jpg, jpeg, png, webp, case-insensitive) ➔ Generated letter avatar.
+   - High-performance disk caching with automatic invalidation when files or timestamps change.
+
+6. **Mark as Finished / Unfinished**:
+   - Manual "Mark as finished" and "Mark as not started" actions in book overflow menus and swipeable library rows.
+   - Prompt to "Start over" (reset to 0:00) or "Keep position" when marking unfinished.
+   - **98% Rule**: Automatic auto-marking as finished when reaching 98% progress or when the last chapter completes.
+   - "Finished on <date>" badge and dedicated setting toggle (default on).
+
+7. **Lost-Folder Recovery & Re-linking**:
+   - Detects when a library folder's SAF permission is lost or when storage is unmounted.
+   - Keeps all affected books visible and preserved as unavailable (never deleted).
+   - **Re-link Folder**: User selects new folder location, and the matching engine pairs books based on (1) relative path, (2) title + author + total duration, and (3) file names and sizes.
+   - Interactive review screen organizing Matched, Ambiguous, and Unmatched books.
+   - Re-linking preserves 100% of playback positions, bookmarks, history, metadata overrides, and finished state.
+
+8. **Now Playing Screen** (Screenshots 2 & 3):
    - Dynamic per-book palette theming (Warm golden amber for *Beyond the Horizon*, Deep cosmic blue for *Echoes of Tomorrow*, Evenfall blue default). Supports light and dark modes.
    - Top bar: Collapse chevron, chapter list button, and overflow menu.
    - Large rounded cover art (~265dp) with serif title and author typography.
@@ -41,24 +72,24 @@ Evenfall faithfully recreates all 8 design reference screens:
      - Silence skipping (scissors icon; Media3 audio processor)
      - Volume boost (speaker-plus icon; `LoudnessEnhancer` with safe dB floor)
 
-4. **Bookmarks** (Screenshot 4):
+9. **Bookmarks** (Screenshot 4):
    - Header with book title and author in serif font, sort options, and segmented tabs ("Bookmarks (count)" and "History").
    - Mini timeline of the whole book with floating markers above segments (heart, quote "99", note star, bookmark) and "You are here" indicator ring.
    - Filter chips: All, Notes, Favorites, Quotes.
    - Chapter-grouped cards with relative timestamps ("Sep 12", "Thu", "Yesterday").
    - Extended FAB: "Save this moment" with custom title, note, and type selector.
 
-5. **History** (Screenshot 5):
+10. **History** (Screenshot 5):
    - Time-grouped sections ("This morning", "Last night", etc.).
    - Vertical connected timeline nodes: Played, Paused, Interrupted for N min (phone calls / notifications), Sleep timer on, Sleep timer ended, Shook to keep listening.
    - Clickable position chips ("Ch. 12 · 34:18") allowing one-tap recovery of lost places.
    - Automatic history pruning (retaining last 30 days / 100 events per book).
 
-6. **Home-Screen Widgets (Jetpack Glance)** (Screenshot 6):
+11. **Home-Screen Widgets (Jetpack Glance)** (Screenshot 6):
    - **Now Playing Widget**: Cookie-cropped cover, title, "🌙 Stops at 11:11 PM", wavy progress line, "Ch. 12 of 24", time left, and rewind / play-pause / forward controls.
    - **Continue Listening Widget**: Horizontal shelf of book covers with progress bars and instant resume.
 
-7. **Settings** (Screenshot 7):
+12. **Settings** (Screenshot 7):
    - Subtitle: "Make Evenfall yours".
    - Appearance:
      - Theme selector with preview cards (Follow system, Light, Dark).
@@ -69,9 +100,9 @@ Evenfall faithfully recreates all 8 design reference screens:
      - Auto-rewind after pause toggle (rewinds proportionally to pause duration).
      - Shake-to-extend accelerometer toggle.
    - Library & Backup: Rescan audiobooks, export JSON backup via SAF.
-   - About: Evenfall v1.0.0, open-source licenses, 100% offline guarantee.
+   - About: Evenfall v1.2.0, open-source licenses, 100% offline guarantee.
 
-8. **Android Auto**:
+13. **Android Auto**:
    - `MediaLibraryService` with driver-safe browsable catalog (Continue Listening, All Books, Chapters).
    - Compliant with Android automotive media standards (`@xml/automotive_app_desc`).
 
