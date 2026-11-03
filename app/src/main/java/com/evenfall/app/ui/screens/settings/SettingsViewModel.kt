@@ -378,4 +378,14 @@ class SettingsViewModel @Inject constructor(
         _restoreSuccessMessage.value = null
         _restoreErrorMessage.value = null
     }
+
+    suspend fun exportAllBookmarks(format: com.evenfall.app.util.ExportFormat): String {
+        val books = bookDao.getAllBooksSync()
+        val booksData = books.map { b ->
+            val bookmarks = bookmarkDao.getBookmarksForBookSync(b.id)
+            val chapters = chapterDao.getChaptersForBookSync(b.id)
+            com.evenfall.app.util.BookExportData(b, bookmarks, chapters)
+        }
+        return com.evenfall.app.util.BookmarkExporter.exportAll(booksData, format)
+    }
 }

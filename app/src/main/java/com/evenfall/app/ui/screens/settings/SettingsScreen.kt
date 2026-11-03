@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -64,6 +65,8 @@ import com.evenfall.app.util.TimeUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,7 +92,12 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+    var showExportAllDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var exportAllFormat by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.evenfall.app.util.ExportFormat.MARKDOWN) }
 
     val backupFolderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -104,6 +112,17 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.onRestoreFileSelected(uri)
+        }
+    }
+
+    val saveAllBookmarksLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/*")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val content = viewModel.exportAllBookmarks(exportAllFormat)
+                com.evenfall.app.util.BookmarkExporter.writeToUri(context, uri, content)
+            }
         }
     }
 
@@ -689,6 +708,33 @@ fun SettingsScreen(
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Export all bookmarks button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showExportAllDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(stringResource(R.string.export_all_bookmarks), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        stringResource(R.string.export_all_bookmarks_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -892,6 +938,89 @@ fun SettingsScreen(
                 confirmButton = {
                     TextButton(onClick = viewModel::clearStatusMessage) {
                         Text("OK")
+                    }
+                }
+            )
+        }
+
+        // Export All Bookmarks Dialog
+        if (showExportAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportAllDialog = false },
+                title = {
+                    Text(
+                        stringResource(R.string.export_all_bookmarks),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Choose export format:",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { exportAllFormat = com.evenfall.app.util.ExportFormat.MARKDOWN }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = exportAllFormat == com.evenfall.app.util.ExportFormat.MARKDOWN,
+                                onClick = { exportAllFormat = com.evenfall.app.util.ExportFormat.MARKDOWN }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_markdown), fontSize = 14.sp)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { exportAllFormat = com.evenfall.app.util.ExportFormat.TEXT }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = exportAllFormat == com.evenfall.app.util.ExportFormat.TEXT,
+                                onClick = { exportAllFormat = com.evenfall.app.util.ExportFormat.TEXT }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_text), fontSize = 14.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                val content = viewModel.exportAllBookmarks(exportAllFormat)
+                                com.evenfall.app.util.BookmarkExporter.shareExport(
+                                    context,
+                                    content,
+                                    "Evenfall - All Bookmarks"
+                                )
+                                showExportAllDialog = false
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.share_export))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            val ext = if (exportAllFormat == com.evenfall.app.util.ExportFormat.MARKDOWN) "md" else "txt"
+                            saveAllBookmarksLauncher.launch("evenfall-all-bookmarks.$ext")
+                            showExportAllDialog = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.save_export))
                     }
                 }
             )

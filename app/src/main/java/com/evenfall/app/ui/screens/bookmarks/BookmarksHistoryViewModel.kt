@@ -188,4 +188,15 @@ class BookmarksHistoryViewModel @Inject constructor(
             bookmarkDao.delete(bookmark)
         }
     }
+
+    fun exportBookmarks(format: com.evenfall.app.util.ExportFormat): String {
+        val state = uiState.value
+        val book = state.book ?: return ""
+        return com.evenfall.app.util.BookmarkExporter.exportBook(
+            book = book,
+            bookmarks = state.bookmarks,
+            chapters = state.chapters,
+            format = format
+        )
+    }
 }
