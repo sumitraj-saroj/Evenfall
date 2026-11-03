@@ -12,23 +12,11 @@ Evenfall is an elegant, privacy-first native Android audiobook player built spec
 
 ---
 
-## 📱 Visual Gallery
-
-| **Home & Library** | **Now Playing (Warm Amber)** | **Now Playing (Deep Blue)** | **Bookmarks & Notes** |
-|:---:|:---:|:---:|:---:|
-| <img src="screenshots/01_home_library.jpeg" width="200" alt="Home and Library Screen" /> | <img src="screenshots/02_now_playing_amber.jpeg" width="200" alt="Now Playing Warm Amber" /> | <img src="screenshots/03_now_playing_blue.jpeg" width="200" alt="Now Playing Deep Blue" /> | <img src="screenshots/04_bookmarks.jpeg" width="200" alt="Bookmarks and Notes" /> |
-
-| **History Timeline** | **Home-Screen Widgets** | **Settings & Themes** | **Onboarding & Scan** |
-|:---:|:---:|:---:|:---:|
-| <img src="screenshots/05_history.jpeg" width="200" alt="Listening History Timeline" /> | <img src="screenshots/06_widgets.jpeg" width="200" alt="Jetpack Glance Home Widgets" /> | <img src="screenshots/07_settings.jpeg" width="200" alt="Settings and Color Swatches" /> | <img src="screenshots/08_onboarding.jpeg" width="200" alt="Onboarding Folder Scanner" /> |
-
----
-
 ## 🌟 Key Features & Design Matching
 
 Evenfall faithfully recreates all 8 design reference screens along with essential everyday usability capabilities:
 
-1. **Onboarding & Smart Folder Scanning** ([Screenshot 8](screenshots/08_onboarding.jpeg)):
+1. **Onboarding & Smart Folder Scanning** (Screenshot 8):
    - "Add a folder. Evenfall does the rest." with SAF tree URI permission persistence.
    - Live preview showing "We found N books" with the caption "Every folder or file in Audiobooks is a book".
    - Letter avatars in cookie/scalloped shapes (`CookieShape`), duration, author, and audio file count.
@@ -36,7 +24,7 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
    - Animated wavy progress indicator and floating sparkles.
    - Handles added, renamed, or removed files without losing positions.
 
-2. **Home & Library** ([Screenshot 1](screenshots/01_home_library.jpeg)):
+2. **Home & Library** (Screenshot 1):
    - Search bar "Search your library" with settings shortcut.
    - Time-based greeting ("Good morning", "Good afternoon", "Good evening") and "N books in progress".
    - Large **Continue listening** hero card with gradient background, rounded cover art, "% of book", time left, progress bar, and cookie-shaped play button.
@@ -75,7 +63,7 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
    - Interactive review screen organizing Matched, Ambiguous, and Unmatched books.
    - Re-linking preserves 100% of playback positions, bookmarks, history, metadata overrides, and finished state.
 
-8. **Now Playing Screen** ([Screenshot 2](screenshots/02_now_playing_amber.jpeg) & [Screenshot 3](screenshots/03_now_playing_blue.jpeg)):
+8. **Now Playing Screen** (Screenshots 2 & 3):
    - Dynamic per-book palette theming (Warm golden amber for *Beyond the Horizon*, Deep cosmic blue for *Echoes of Tomorrow*, Evenfall blue default). Supports light and dark modes.
    - Top bar: Collapse chevron, chapter list button, and overflow menu.
    - Large rounded cover art (~265dp) with serif title and author typography.
@@ -91,24 +79,24 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
      - Silence skipping (scissors icon; Media3 audio processor)
      - Volume boost (speaker-plus icon; `LoudnessEnhancer` with safe dB floor)
 
-9. **Bookmarks** ([Screenshot 4](screenshots/04_bookmarks.jpeg)):
+9. **Bookmarks** (Screenshot 4):
    - Header with book title and author in serif font, sort options, and segmented tabs ("Bookmarks (count)" and "History").
    - Mini timeline of the whole book with floating markers above segments (heart, quote "99", note star, bookmark) and "You are here" indicator ring.
    - Filter chips: All, Notes, Favorites, Quotes.
    - Chapter-grouped cards with relative timestamps ("Sep 12", "Thu", "Yesterday").
    - Extended FAB: "Save this moment" with custom title, note, and type selector.
 
-10. **History** ([Screenshot 5](screenshots/05_history.jpeg)):
+10. **History** (Screenshot 5):
    - Time-grouped sections ("This morning", "Last night", etc.).
    - Vertical connected timeline nodes: Played, Paused, Interrupted for N min (phone calls / notifications), Sleep timer on, Sleep timer ended, Shook to keep listening.
    - Clickable position chips ("Ch. 12 · 34:18") allowing one-tap recovery of lost places.
    - Automatic history pruning (retaining last 30 days / 100 events per book).
 
-11. **Home-Screen Widgets (Jetpack Glance)** ([Screenshot 6](screenshots/06_widgets.jpeg)):
+11. **Home-Screen Widgets (Jetpack Glance)** (Screenshot 6):
    - **Now Playing Widget**: Cookie-cropped cover, title, "🌙 Stops at 11:11 PM", wavy progress line, "Ch. 12 of 24", time left, and rewind / play-pause / forward controls.
    - **Continue Listening Widget**: Horizontal shelf of book covers with progress bars and instant resume.
 
-12. **Settings** ([Screenshot 7](screenshots/07_settings.jpeg)):
+12. **Settings** (Screenshot 7):
    - Subtitle: "Make Evenfall yours".
    - Appearance:
      - Theme selector with preview cards (Follow system, Light, Dark).
