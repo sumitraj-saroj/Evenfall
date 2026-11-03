@@ -61,6 +61,28 @@ class PlayerViewModel @Inject constructor(
             initialValue = true
         )
 
+    val hintLongPressSkipShown: StateFlow<Boolean> = preferencesManager.hintLongPressSkipShown
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    val hintBookmarkShown: StateFlow<Boolean> = preferencesManager.hintBookmarkShown
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    fun dismissHintLongPressSkip() {
+        viewModelScope.launch { preferencesManager.setHintLongPressSkipShown(true) }
+    }
+
+    fun dismissHintBookmark() {
+        viewModelScope.launch { preferencesManager.setHintBookmarkShown(true) }
+    }
+
     init {
         val bookId: Long? = savedStateHandle["bookId"]
         if (bookId != null && bookId > 0) {
@@ -216,4 +238,7 @@ class PlayerViewModel @Inject constructor(
             }
         }
     }
+
+    fun dismissPlaybackError() = playbackManager.dismissPlaybackError()
+    fun retryPlayback() = playbackManager.retryPlayback()
 }

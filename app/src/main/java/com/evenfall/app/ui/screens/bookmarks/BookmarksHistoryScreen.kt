@@ -78,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.evenfall.app.ui.components.EmptyStateView
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.R
@@ -171,7 +172,7 @@ fun BookmarksHistoryScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.cd_back)
                             )
                         }
                     },
@@ -186,7 +187,7 @@ fun BookmarksHistoryScreen(
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                    contentDescription = "Sort bookmarks"
+                                    contentDescription = stringResource(R.string.cd_sort_bookmarks)
                                 )
                             }
                             DropdownMenu(
@@ -194,28 +195,28 @@ fun BookmarksHistoryScreen(
                                 onDismissRequest = { showSortMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Position in book") },
+                                    text = { Text(stringResource(R.string.filter_position)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.POSITION)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Newest first") },
+                                    text = { Text(stringResource(R.string.filter_newest_first)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.NEWEST)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Oldest first") },
+                                    text = { Text(stringResource(R.string.filter_oldest_first)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.OLDEST)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Title") },
+                                    text = { Text(stringResource(R.string.title_label)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.TITLE)
                                         showSortMenu = false
@@ -233,7 +234,7 @@ fun BookmarksHistoryScreen(
                     ExtendedFloatingActionButton(
                         onClick = { showSaveDialog = true },
                         icon = { Icon(Icons.Default.BookmarkAdd, contentDescription = null) },
-                        text = { Text("Save this moment", fontWeight = FontWeight.SemiBold) },
+                        text = { Text(stringResource(R.string.save_this_moment), fontWeight = FontWeight.SemiBold) },
                         containerColor = Color(0xFF0284C7),
                         contentColor = Color.White,
                         shape = RoundedCornerShape(20.dp),
@@ -356,7 +357,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.ALL,
                                 onClick = { viewModel.selectFilter(BookmarkType.ALL) },
-                                label = { Text("All ${uiState.bookmarkCount}") },
+                                label = { Text(stringResource(R.string.filter_all_count, uiState.bookmarkCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -364,7 +365,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.NOTE,
                                 onClick = { viewModel.selectFilter(BookmarkType.NOTE) },
-                                label = { Text("Notes ${uiState.notesCount}") },
+                                label = { Text(stringResource(R.string.filter_notes_count, uiState.notesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -372,7 +373,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.FAVORITE,
                                 onClick = { viewModel.selectFilter(BookmarkType.FAVORITE) },
-                                label = { Text("Favorites ${uiState.favoritesCount}") },
+                                label = { Text(stringResource(R.string.filter_favorites_count, uiState.favoritesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -380,7 +381,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.QUOTE,
                                 onClick = { viewModel.selectFilter(BookmarkType.QUOTE) },
-                                label = { Text("Quotes ${uiState.quotesCount}") },
+                                label = { Text(stringResource(R.string.filter_quotes_count, uiState.quotesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -388,84 +389,104 @@ fun BookmarksHistoryScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Group bookmarks by chapter
-                    val bookmarkChapters = uiState.bookmarks.groupBy { it.chapterIndex }
-                    val allDisplayChapterIndices = (bookmarkChapters.keys + curIdx).sorted()
+                    if (uiState.bookmarks.isEmpty()) {
+                        EmptyStateView(
+                            illustrationRes = R.drawable.ic_empty_bookmarks,
+                            title = stringResource(R.string.empty_bookmarks_title),
+                            message = stringResource(R.string.empty_bookmarks_desc),
+                            actionLabel = stringResource(R.string.save_this_moment),
+                            onAction = { showSaveDialog = true },
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                    } else {
+                        // Group bookmarks by chapter
+                        val bookmarkChapters = uiState.bookmarks.groupBy { it.chapterIndex }
+                        val allDisplayChapterIndices = (bookmarkChapters.keys + curIdx).sorted()
 
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 90.dp)
-                    ) {
-                        allDisplayChapterIndices.forEach { chapterIdx ->
-                            val bList = bookmarkChapters[chapterIdx] ?: emptyList()
-                            val chapterName = bList.firstOrNull()?.chapterTitle
-                                ?: uiState.chapters.getOrNull(chapterIdx)?.title
-                                ?: "Chapter ${chapterIdx + 1}"
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 90.dp)
+                        ) {
+                            allDisplayChapterIndices.forEach { chapterIdx ->
+                                val bList = bookmarkChapters[chapterIdx] ?: emptyList()
+                                val chapterName = bList.firstOrNull()?.chapterTitle
+                                    ?: uiState.chapters.getOrNull(chapterIdx)?.title
+                                    ?: "Chapter ${chapterIdx + 1}"
 
-                            item {
-                                Text(
-                                    text = "Chapter ${chapterIdx + 1} · $chapterName",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
-                                )
-                            }
-
-                            // Show "You are here" card if current position is in this chapter
-                            if (chapterIdx == curIdx) {
                                 item {
-                                    YouAreHereCard(
-                                        positionMs = uiState.currentPositionMs,
-                                        progressPercent = if (book != null && book.totalDurationMs > 0) {
-                                            ((book.currentPositionMs.toFloat() / book.totalDurationMs) * 100).toInt()
-                                        } else 0
+                                    Text(
+                                        text = "Chapter ${chapterIdx + 1} · $chapterName",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
                                     )
                                 }
-                            }
 
-                            items(bList) { bookmark ->
-                                BookmarkRowCard(
-                                    bookmark = bookmark,
-                                    isDark = isDark,
-                                    onClick = { viewModel.jumpToBookmark(bookmark) },
-                                    onDelete = { viewModel.deleteBookmark(bookmark) }
-                                )
+                                // Show "You are here" card if current position is in this chapter
+                                if (chapterIdx == curIdx) {
+                                    item {
+                                        YouAreHereCard(
+                                            positionMs = uiState.currentPositionMs,
+                                            progressPercent = if (book != null && book.totalDurationMs > 0) {
+                                                ((book.currentPositionMs.toFloat() / book.totalDurationMs) * 100).toInt()
+                                            } else 0
+                                        )
+                                    }
+                                }
+
+                                items(bList) { bookmark ->
+                                    BookmarkRowCard(
+                                        bookmark = bookmark,
+                                        isDark = isDark,
+                                        onClick = { viewModel.jumpToBookmark(bookmark) },
+                                        onDelete = { viewModel.deleteBookmark(bookmark) }
+                                    )
+                                }
                             }
                         }
                     }
                 } else {
                     // History Tab (matching Image 5)
-                    val groupedHistory = uiState.historyEvents.groupBy { TimeUtils.formatHistoryTimeGroup(it.timestamp) }
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 40.dp)
-                    ) {
-                        groupedHistory.forEach { (timeGroup, events) ->
-                            item {
-                                Text(
-                                    text = timeGroup,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-                                )
-                            }
+                    if (uiState.historyEvents.isEmpty()) {
+                        EmptyStateView(
+                            illustrationRes = R.drawable.ic_empty_history,
+                            title = stringResource(R.string.empty_history_title),
+                            message = stringResource(R.string.empty_history_desc),
+                            modifier = Modifier.padding(top = 28.dp)
+                        )
+                    } else {
+                        val groupedHistory = uiState.historyEvents.groupBy { TimeUtils.formatHistoryTimeGroup(it.timestamp) }
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 40.dp)
+                        ) {
+                            groupedHistory.forEach { (timeGroup, events) ->
+                                item {
+                                    Text(
+                                        text = timeGroup,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                                    )
+                                }
 
-                            item {
-                                Surface(
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        events.forEachIndexed { idx, event ->
-                                            HistoryEventRow(
-                                                event = event,
-                                                isDark = isDark,
-                                                isLast = idx == events.size - 1,
-                                                onJumpToPosition = { viewModel.jumpToHistory(event) }
-                                            )
+                                item {
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            events.forEachIndexed { idx, event ->
+                                                HistoryEventRow(
+                                                    event = event,
+                                                    isDark = isDark,
+                                                    isLast = idx == events.size - 1,
+                                                    onJumpToPosition = { viewModel.jumpToHistory(event) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -484,35 +505,35 @@ fun BookmarksHistoryScreen(
 
             AlertDialog(
                 onDismissRequest = { showSaveDialog = false },
-                title = { Text("Save this moment", fontFamily = SerifFont) },
+                title = { Text(stringResource(R.string.save_this_moment), fontFamily = SerifFont) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
                             value = momentTitle,
                             onValueChange = { momentTitle = it },
-                            label = { Text("Title") },
-                            placeholder = { Text("e.g. Mira's theory") },
+                            label = { Text(stringResource(R.string.title_label)) },
+                            placeholder = { Text(stringResource(R.string.placeholder_bookmark_title)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
                             value = momentNote,
                             onValueChange = { momentNote = it },
-                            label = { Text("Note (optional)") },
+                            label = { Text(stringResource(R.string.note_optional_label)) },
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Text("Type", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.type_label), style = MaterialTheme.typography.titleSmall)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             listOf(
-                                BookmarkType.BOOKMARK to "Bookmark",
-                                BookmarkType.FAVORITE to "Favorite",
-                                BookmarkType.QUOTE to "Quote",
-                                BookmarkType.NOTE to "Note"
+                                BookmarkType.BOOKMARK to stringResource(R.string.bookmark_type_bookmark),
+                                BookmarkType.FAVORITE to stringResource(R.string.bookmark_type_favorite),
+                                BookmarkType.QUOTE to stringResource(R.string.bookmark_type_quote),
+                                BookmarkType.NOTE to stringResource(R.string.bookmark_type_note)
                             ).forEach { (t, label) ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -532,12 +553,12 @@ fun BookmarksHistoryScreen(
                             showSaveDialog = false
                         }
                     ) {
-                        Text("Save")
+                        Text(stringResource(R.string.save))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showSaveDialog = false }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             )

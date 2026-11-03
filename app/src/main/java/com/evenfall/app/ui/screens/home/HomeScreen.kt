@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,20 +30,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -55,6 +60,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
@@ -63,7 +70,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,6 +99,7 @@ import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.AddToCollectionDialog
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.EditBookDetailsDialog
+import com.evenfall.app.ui.components.EmptyStateView
 import com.evenfall.app.ui.components.SortFilterBottomSheet
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.theme.CookieShape
@@ -105,16 +115,43 @@ fun HomeScreen(
     onOpenFixLibrary: () -> Unit = {},
     onOpenManageCollections: () -> Unit = {},
     onOpenStats: () -> Unit = {},
+    onOpenScanLog: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     hasMiniPlayer: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val configuration = LocalConfiguration.current
+    val isTwoPane = configuration.screenWidthDp >= 600
+    val playbackState by viewModel.playbackState.collectAsState()
+    var selectedBook by remember { mutableStateOf<BookEntity?>(null) }
+
     var showSortFilterSheet by remember { mutableStateOf(false) }
     var bookToEdit by remember { mutableStateOf<BookEntity?>(null) }
     var bookForCollection by remember { mutableStateOf<BookEntity?>(null) }
     var bookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var bookToResetPositionPrompt by remember { mutableStateOf<BookEntity?>(null) }
     var bookToExplainUnavailable by remember { mutableStateOf<BookEntity?>(null) }
+
+    val handleBookClick: (BookEntity) -> Unit = { book ->
+        if (book.isUnavailable) {
+            bookToExplainUnavailable = book
+        } else if (isTwoPane) {
+            selectedBook = book
+            viewModel.playBook(book)
+        } else {
+            onOpenBook(book.id)
+        }
+    }
+
+    val handleIdClick: (Long) -> Unit = { id ->
+        val book = (listOfNotNull(uiState.heroBook) + uiState.currentBooks + uiState.notStartedBooks + uiState.finishedBooks)
+            .firstOrNull { it.id == id }
+        if (book != null) {
+            handleBookClick(book)
+        } else {
+            onOpenBook(id)
+        }
+    }
 
     BackHandler(enabled = uiState.isSearchFocused || uiState.searchQuery.isNotBlank()) {
         viewModel.clearSearchQuery()
@@ -128,8 +165,83 @@ fun HomeScreen(
     ) {
         SparkleDecorations()
 
-        Scaffold(
-            containerColor = Color.Transparent,
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (isTwoPane) {
+                NavigationRail(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .statusBarsPadding()
+                        .navigationBarsPadding(),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    header = {
+                        Surface(
+                            shape = CookieShape(12),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(vertical = 12.dp)
+                                .size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = stringResource(R.string.app_name),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    NavigationRailItem(
+                        selected = uiState.selectedTab == LibraryTab.BOOKS,
+                        onClick = { viewModel.setLibraryTab(LibraryTab.BOOKS) },
+                        icon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = stringResource(R.string.tab_books)) },
+                        label = { Text(stringResource(R.string.tab_books), fontSize = 11.sp) }
+                    )
+                    NavigationRailItem(
+                        selected = uiState.selectedTab == LibraryTab.SERIES,
+                        onClick = { viewModel.setLibraryTab(LibraryTab.SERIES) },
+                        icon = { Icon(Icons.Default.CollectionsBookmark, contentDescription = stringResource(R.string.tab_series)) },
+                        label = { Text(stringResource(R.string.tab_series), fontSize = 11.sp) }
+                    )
+                    NavigationRailItem(
+                        selected = uiState.selectedTab == LibraryTab.AUTHORS,
+                        onClick = { viewModel.setLibraryTab(LibraryTab.AUTHORS) },
+                        icon = { Icon(Icons.Default.Person, contentDescription = stringResource(R.string.tab_authors)) },
+                        label = { Text(stringResource(R.string.tab_authors), fontSize = 11.sp) }
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    NavigationRailItem(
+                        selected = false,
+                        onClick = onOpenManageCollections,
+                        icon = { Icon(Icons.Default.FolderSpecial, contentDescription = stringResource(R.string.collections_title)) },
+                        label = { Text(stringResource(R.string.collections_title), fontSize = 11.sp) }
+                    )
+                    NavigationRailItem(
+                        selected = false,
+                        onClick = onOpenStats,
+                        icon = { Icon(Icons.Default.QueryStats, contentDescription = stringResource(R.string.stats_title)) },
+                        label = { Text(stringResource(R.string.stats_title), fontSize = 11.sp) }
+                    )
+                    NavigationRailItem(
+                        selected = false,
+                        onClick = onOpenSettings,
+                        icon = { Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.cd_settings)) },
+                        label = { Text(stringResource(R.string.cd_settings), fontSize = 11.sp) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(if (isTwoPane) 1.1f else 1f)
+                    .fillMaxHeight()
+            ) {
+                Scaffold(
+                    containerColor = Color.Transparent,
             topBar = {
                 // Top Search Bar with status bar padding
                 Row(
@@ -204,28 +316,30 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    if (!isTwoPane) {
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                    IconButton(
-                        onClick = onOpenStats,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QueryStats,
-                            contentDescription = stringResource(R.string.action_stats),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                        IconButton(
+                            onClick = onOpenStats,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QueryStats,
+                                contentDescription = stringResource(R.string.action_stats),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = stringResource(R.string.cd_settings),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        IconButton(
+                            onClick = onOpenSettings,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = stringResource(R.string.cd_settings),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
@@ -255,40 +369,42 @@ fun HomeScreen(
                     )
                 }
 
-                // Segmented Tabs: Books / Series / Authors
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                // Segmented Tabs: Books / Series / Authors (phone only; NavigationRail used on tablet/foldable)
+                if (!isTwoPane) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
                     ) {
-                        val tabs = listOf(
-                            LibraryTab.BOOKS to stringResource(R.string.tab_books),
-                            LibraryTab.SERIES to stringResource(R.string.tab_series),
-                            LibraryTab.AUTHORS to stringResource(R.string.tab_authors)
-                        )
-                        for ((tab, label) in tabs) {
-                            val isSelected = uiState.selectedTab == tab
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(38.dp)
-                                    .clickable { viewModel.setLibraryTab(tab) }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                        Row(
+                            modifier = Modifier.padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val tabs = listOf(
+                                LibraryTab.BOOKS to stringResource(R.string.tab_books),
+                                LibraryTab.SERIES to stringResource(R.string.tab_series),
+                                LibraryTab.AUTHORS to stringResource(R.string.tab_authors)
+                            )
+                            for ((tab, label) in tabs) {
+                                val isSelected = uiState.selectedTab == tab
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                        .clickable { viewModel.setLibraryTab(tab) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -322,7 +438,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterStatus(st, false) },
                                         label = { Text(label, fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) },
                                         colors = AssistChipDefaults.assistChipColors(
                                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                         )
@@ -334,7 +450,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterCollection(null) },
                                         label = { Text(colName, fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) },
                                         colors = AssistChipDefaults.assistChipColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                                         )
@@ -345,7 +461,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterSeriesOnly(false) },
                                         label = { Text(stringResource(R.string.filter_series_only), fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) }
                                     )
                                 }
 
@@ -353,7 +469,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterUnavailableOnly(false) },
                                         label = { Text(stringResource(R.string.filter_unavailable), fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) }
                                     )
                                 }
 
@@ -415,17 +531,17 @@ fun HomeScreen(
                         results = uiState.searchResults,
                         onOpenBook = { b ->
                             viewModel.openSearchResultBook(b)
-                            if (b.isUnavailable) bookToExplainUnavailable = b
-                            else onOpenBook(b.id)
+                            handleBookClick(b)
                         },
                         onOpenBookmark = { bm ->
                             viewModel.openSearchResultBookmark(bm)
-                            onOpenBook(bm.bookmark.bookId)
+                            handleIdClick(bm.bookmark.bookId)
                         },
                         onOpenChapter = { ch ->
                             viewModel.openSearchResultChapter(ch)
-                            onOpenBook(ch.chapter.bookId)
+                            handleIdClick(ch.chapter.bookId)
                         },
+                        onClearSearch = viewModel::clearSearchQuery,
                         modifier = Modifier.padding(bottom = bottomPadding)
                     )
                 } else if (uiState.isSearchFocused && uiState.recentSearches.isNotEmpty()) {
@@ -442,7 +558,7 @@ fun HomeScreen(
                     LibraryTab.SERIES -> {
                         SeriesViewContent(
                             seriesGroups = uiState.seriesGroups,
-                            onOpenBook = { id -> onOpenBook(id) },
+                            onOpenBook = handleIdClick,
                             onEditDetails = { b -> bookToEdit = b },
                             onAddToCollection = { b ->
                                 viewModel.getCollectionsForBook(b.id) { ids ->
@@ -459,7 +575,7 @@ fun HomeScreen(
                     LibraryTab.AUTHORS -> {
                         AuthorViewContent(
                             authorGroups = uiState.authorGroups,
-                            onOpenBook = { id -> onOpenBook(id) },
+                            onOpenBook = handleIdClick,
                             onEditDetails = { b -> bookToEdit = b },
                             onAddToCollection = { b ->
                                 viewModel.getCollectionsForBook(b.id) { ids ->
@@ -477,7 +593,7 @@ fun HomeScreen(
                         if (uiState.viewMode == LibraryViewMode.GRID) {
                             BookCoverGridContent(
                                 books = uiState.filteredBooksList,
-                                onOpenBook = { id -> onOpenBook(id) },
+                                onOpenBook = handleIdClick,
                                 onEditDetails = { b -> bookToEdit = b },
                                 onAddToCollection = { b ->
                                     viewModel.getCollectionsForBook(b.id) { ids ->
@@ -497,7 +613,7 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.spacedBy(18.dp)
                             ) {
                                 // Lost-Folder Warning Banner
-                                if (uiState.hasUnavailableBooks) {
+                                if (uiState.hasUnavailableBooks && !uiState.allBooksUnavailable) {
                                     item {
                                         Surface(
                                             shape = RoundedCornerShape(16.dp),
@@ -544,16 +660,87 @@ fun HomeScreen(
                                     }
                                 }
 
+                                if (uiState.scanIssueCount > 0) {
+                                    item {
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = stringResource(R.string.skipped_corrupt_files_notice),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                TextButton(
+                                                    onClick = onOpenScanLog,
+                                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                    )
+                                                ) {
+                                                    Text(stringResource(R.string.view_scan_log), fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (uiState.isLibraryEmpty) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_library,
+                                            title = stringResource(R.string.empty_library_title),
+                                            message = stringResource(R.string.empty_library_desc),
+                                            actionLabel = stringResource(R.string.empty_library_action),
+                                            onAction = onOpenAddFolder,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
+                                    }
+                                } else if (uiState.allBooksUnavailable) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_permission,
+                                            title = stringResource(R.string.empty_permission_title),
+                                            message = stringResource(R.string.empty_permission_desc),
+                                            actionLabel = stringResource(R.string.empty_permission_action),
+                                            onAction = onOpenFixLibrary,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
+                                    }
+                                } else if (uiState.filteredBooksList.isEmpty()) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_search,
+                                            title = stringResource(R.string.empty_search_title),
+                                            message = stringResource(R.string.empty_search_desc),
+                                            actionLabel = stringResource(R.string.clear_filter),
+                                            onAction = viewModel::clearFilters,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
+                                    }
+                                }
+
                                 // Hero Card: Continue Listening (when no search/filter active)
                                 if (!uiState.filterState.hasActiveFilters && uiState.searchQuery.isBlank()) {
                                     uiState.heroBook?.let { hero ->
                                         item {
                                             ContinueListeningHeroCard(
                                                 book = hero,
-                                                onClick = {
-                                                    if (hero.isUnavailable) bookToExplainUnavailable = hero
-                                                    else onOpenBook(hero.id)
-                                                },
+                                                onClick = { handleBookClick(hero) },
                                                 onEditDetails = { bookToEdit = hero },
                                                 onAddToCollection = {
                                                     viewModel.getCollectionsForBook(hero.id) { ids ->
@@ -572,10 +759,7 @@ fun HomeScreen(
                                     items(uiState.filteredBooksList, key = { it.id }) { book ->
                                         CurrentBookRow(
                                             book = book,
-                                            onClick = {
-                                                if (book.isUnavailable) bookToExplainUnavailable = book
-                                                else onOpenBook(book.id)
-                                            },
+                                            onClick = { handleBookClick(book) },
                                             onEditDetails = { bookToEdit = book },
                                             onAddToCollection = {
                                                 viewModel.getCollectionsForBook(book.id) { ids ->
@@ -630,10 +814,7 @@ fun HomeScreen(
                                                     uiState.currentBooks.forEachIndexed { index, book ->
                                                         CurrentBookRow(
                                                             book = book,
-                                                            onClick = {
-                                                                if (book.isUnavailable) bookToExplainUnavailable = book
-                                                                else onOpenBook(book.id)
-                                                            },
+                                                            onClick = { handleBookClick(book) },
                                                             onEditDetails = { bookToEdit = book },
                                                             onAddToCollection = {
                                                                 viewModel.getCollectionsForBook(book.id) { ids ->
@@ -657,7 +838,7 @@ fun HomeScreen(
                                     if (uiState.notStartedBooks.isNotEmpty()) {
                                         item {
                                             Text(
-                                                text = "Not started",
+                                                text = stringResource(R.string.status_not_started),
                                                 fontFamily = SerifFont,
                                                 style = MaterialTheme.typography.titleLarge,
                                                 color = MaterialTheme.colorScheme.onSurface,
@@ -667,10 +848,7 @@ fun HomeScreen(
                                         items(uiState.notStartedBooks, key = { it.id }) { book ->
                                             CurrentBookRow(
                                                 book = book,
-                                                onClick = {
-                                                    if (book.isUnavailable) bookToExplainUnavailable = book
-                                                    else onOpenBook(book.id)
-                                                },
+                                                onClick = { handleBookClick(book) },
                                                 onEditDetails = { bookToEdit = book },
                                                 onAddToCollection = {
                                                     viewModel.getCollectionsForBook(book.id) { ids ->
@@ -688,7 +866,7 @@ fun HomeScreen(
                                     if (uiState.finishedBooks.isNotEmpty()) {
                                         item {
                                             Text(
-                                                text = "Finished",
+                                                text = stringResource(R.string.status_finished),
                                                 fontFamily = SerifFont,
                                                 style = MaterialTheme.typography.titleLarge,
                                                 color = MaterialTheme.colorScheme.onSurface,
@@ -698,10 +876,7 @@ fun HomeScreen(
                                         items(uiState.finishedBooks, key = { it.id }) { book ->
                                             CurrentBookRow(
                                                 book = book,
-                                                onClick = {
-                                                    if (book.isUnavailable) bookToExplainUnavailable = book
-                                                    else onOpenBook(book.id)
-                                                },
+                                                onClick = { handleBookClick(book) },
                                                 onEditDetails = { bookToEdit = book },
                                                 onAddToCollection = {
                                                     viewModel.getCollectionsForBook(book.id) { ids ->
@@ -725,7 +900,32 @@ fun HomeScreen(
                 }
             }
         }
-        }
+            } // End Scaffold
+            } // End Left Pane Box
+
+            if (isTwoPane) {
+                VerticalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                )
+
+                HomeRightPane(
+                    playbackState = playbackState,
+                    selectedBook = selectedBook ?: playbackState.currentBook ?: uiState.heroBook,
+                    onPlayPause = viewModel::togglePlayPause,
+                    onSkipBackward = viewModel::skipBackward,
+                    onSkipForward = viewModel::skipForward,
+                    onSeek = viewModel::seekToFraction,
+                    onOpenFullPlayer = onOpenBook,
+                    onPlayBook = { b -> viewModel.playBook(b) },
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .fillMaxHeight()
+                )
+            }
+        } // End Row
 
         // Dialogs
         if (showSortFilterSheet) {
@@ -935,7 +1135,7 @@ fun ContinueListeningHeroCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Hero options",
+                                contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
                                 tint = Color(0xFF6B5E4A)
                             )
                         }
@@ -1033,7 +1233,7 @@ fun ContinueListeningHeroCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$progressPercent% of book",
+                        text = stringResource(R.string.progress_percent_of_book, progressPercent),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1E3A8A)
@@ -1042,7 +1242,7 @@ fun ContinueListeningHeroCard(
                     Spacer(modifier = Modifier.weight(1f))
 
                     Text(
-                        text = "${TimeUtils.formatDuration(timeLeftMs)} left",
+                        text = stringResource(R.string.time_left_format, TimeUtils.formatDuration(timeLeftMs)),
                         fontSize = 12.sp,
                         color = Color(0xFF475569)
                     )
@@ -1059,7 +1259,7 @@ fun ContinueListeningHeroCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play ${book.displayTitle}",
+                                contentDescription = stringResource(R.string.cd_play_book, book.displayTitle),
                                 tint = Color.White,
                                 modifier = Modifier.size(28.dp)
                             )
@@ -1175,7 +1375,7 @@ fun CurrentBookRow(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Warning,
-                                    contentDescription = "Unavailable",
+                                    contentDescription = stringResource(R.string.book_unavailable_label),
                                     tint = MaterialTheme.colorScheme.onError,
                                     modifier = Modifier.size(12.dp)
                                 )
@@ -1217,7 +1417,7 @@ fun CurrentBookRow(
                     } else if (book.isFinished) {
                         val finishedDateStr = book.finishedAt?.let { TimeUtils.formatDate(it) } ?: ""
                         Text(
-                            text = if (finishedDateStr.isNotEmpty()) "Finished on $finishedDateStr" else "Finished",
+                            text = if (finishedDateStr.isNotEmpty()) stringResource(R.string.finished_on, finishedDateStr) else stringResource(R.string.status_finished),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium
@@ -1235,7 +1435,7 @@ fun CurrentBookRow(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "${TimeUtils.formatDuration(timeLeftMs)} left",
+                                text = stringResource(R.string.time_left_format, TimeUtils.formatDuration(timeLeftMs)),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

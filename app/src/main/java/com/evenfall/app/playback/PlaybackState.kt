@@ -27,7 +27,9 @@ data class PlaybackState(
     val showWelcomeBackCard: Boolean = false,
     val welcomeBackChapterTitle: String? = null,
     val showBedtimePrompt: Boolean = false,
-    val bedtimePromptDurationMinutes: Int = 30
+    val bedtimePromptDurationMinutes: Int = 30,
+    val isPlaybackError: Boolean = false,
+    val playbackErrorMessage: String? = null
 ) {
     val chapterProgressFraction: Float
         get() = if (chapterDurationMs > 0) {

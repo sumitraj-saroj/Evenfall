@@ -61,6 +61,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -512,7 +513,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Auto-rewind after pause", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.auto_rewind_after_pause), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Rewinds a few seconds based on pause length",
                                     fontSize = 12.sp,
@@ -533,7 +534,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Shake to extend sleep timer", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.shake_to_extend_sleep_timer), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Gently shake phone to add 15 minutes before sleep timer ends",
                                     fontSize = 12.sp,
@@ -554,7 +555,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Compact player", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.compact_player), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Calm, streamlined layout with simplified controls",
                                     fontSize = 12.sp,
@@ -647,6 +648,59 @@ fun SettingsScreen(
                                 checked = uiState.playerGesturesEnabled,
                                 onCheckedChange = viewModel::setPlayerGesturesEnabled
                             )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Haptic Feedback Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.haptic_feedback_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.haptic_feedback_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.hapticFeedbackEnabled,
+                                onCheckedChange = viewModel::setHapticFeedbackEnabled
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Reset Hints and Tips Row
+                        var hintsResetDone by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.reset_tips_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (hintsResetDone) stringResource(R.string.reset_tips_done) else stringResource(R.string.reset_tips_desc),
+                                    fontSize = 12.sp,
+                                    color = if (hintsResetDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.resetTips()
+                                    hintsResetDone = true
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(stringResource(R.string.reset_tips_action), fontSize = 12.sp)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -970,8 +1024,8 @@ fun SettingsScreen(
                                 Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text("Rescan audiobooks", fontWeight = FontWeight.SemiBold)
-                                    Text("Detect new, renamed, or removed files", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.rescan_audiobooks), fontWeight = FontWeight.SemiBold)
+                                    Text(stringResource(R.string.rescan_audiobooks_desc), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -1091,7 +1145,7 @@ fun SettingsScreen(
                                     IconButton(onClick = viewModel::clearBackupFolder) {
                                         Icon(
                                             Icons.Default.Remove,
-                                            contentDescription = "Clear backup folder",
+                                            contentDescription = stringResource(R.string.cd_clear_backup_folder),
                                             tint = MaterialTheme.colorScheme.error
                                         )
                                     }
@@ -1451,11 +1505,11 @@ fun SettingsScreen(
         if (uiState.restoreSuccessMessage != null) {
             AlertDialog(
                 onDismissRequest = viewModel::clearStatusMessage,
-                title = { Text("Restore Complete", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_complete), fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
                 text = { Text(uiState.restoreSuccessMessage ?: "") },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearStatusMessage) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )
@@ -1465,11 +1519,11 @@ fun SettingsScreen(
         if (uiState.restoreErrorMessage != null) {
             AlertDialog(
                 onDismissRequest = viewModel::clearStatusMessage,
-                title = { Text("Restore Failed", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_failed), fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
                 text = { Text(uiState.restoreErrorMessage ?: "") },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearStatusMessage) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )

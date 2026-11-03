@@ -18,8 +18,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evenfall.app.R
 import com.evenfall.app.data.db.entity.BookmarkEntity
 import com.evenfall.app.data.db.entity.BookmarkType
 import com.evenfall.app.util.TimeUtils
@@ -167,7 +169,7 @@ fun BookmarksTimeline(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "$progressPercent% of book",
+                text = stringResource(R.string.progress_percent_of_book, progressPercent),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

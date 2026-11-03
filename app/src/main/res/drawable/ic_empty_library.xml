@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Outer calm glow circle -->
+    <path
+        android:fillColor="#1E3A8A"
+        android:fillAlpha="0.15"
+        android:pathData="M60,60m-50,0a50,50 0 1,1 100,0a50,50 0 1,1 -100,0" />
+
+    <!-- Open Book Spine & Pages -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M60,82 C52,77 40,76 26,78 L26,46 C40,44 52,45 60,50 C68,45 80,44 94,46 L94,78 C80,76 68,77 60,82 Z" />
+    <path
+        android:strokeColor="#BAE6FD"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M60,50 L60,82" />
+    <path
+        android:strokeColor="#BAE6FD"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M34,54 C42,53 50,54 54,57 M34,62 C42,61 50,62 54,65 M66,57 C70,54 78,53 86,54 M66,65 C70,62 78,61 86,62" />
+
+    <!-- Crescent Moon above Book -->
+    <path
+        android:fillColor="#FDE047"
+        android:pathData="M62,22 C55,22 49,28 49,35 C49,42 55,48 62,48 C65,48 68,47.2 70,45.8 C64,43.5 60,37.8 60,32 C60,26.2 64,20.5 70,18.2 C68,16.8 65,22 62,22 Z" />
+
+    <!-- Small Star Sparkle -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M78,24 C78,26.5 80,28.5 82.5,28.5 C80,28.5 78,30.5 78,33 C78,30.5 76,28.5 73.5,28.5 C76,28.5 78,26.5 78,24 Z" />
+</vector>

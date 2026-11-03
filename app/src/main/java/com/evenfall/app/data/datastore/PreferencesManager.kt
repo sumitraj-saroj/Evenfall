@@ -112,6 +112,11 @@ class PreferencesManager(
         val KEY_GLOBAL_VOICE_BOOST_PRESET = stringPreferencesKey("global_voice_boost_preset")
 
         val KEY_STATS_ENABLED = booleanPreferencesKey("listening_stats_enabled")
+        val KEY_HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
+
+        val KEY_HINT_LONG_PRESS_SKIP_SHOWN = booleanPreferencesKey("hint_long_press_skip_shown")
+        val KEY_HINT_BOOKMARK_SHOWN = booleanPreferencesKey("hint_bookmark_shown")
+        val KEY_HINT_MINI_PLAYER_SWIPE_SHOWN = booleanPreferencesKey("hint_mini_player_swipe_shown")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -228,6 +233,11 @@ class PreferencesManager(
     val globalLoudnessNormalization: Flow<Boolean> = dataStore.data.map { it[KEY_GLOBAL_LOUDNESS_NORMALIZATION] ?: false }
     val globalVoiceBoostPreset: Flow<String> = dataStore.data.map { it[KEY_GLOBAL_VOICE_BOOST_PRESET] ?: "Off" }
     val statsEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_STATS_ENABLED] ?: true }
+    val hapticFeedbackEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_HAPTIC_FEEDBACK_ENABLED] ?: true }
+
+    val hintLongPressSkipShown: Flow<Boolean> = dataStore.data.map { it[KEY_HINT_LONG_PRESS_SKIP_SHOWN] ?: false }
+    val hintBookmarkShown: Flow<Boolean> = dataStore.data.map { it[KEY_HINT_BOOKMARK_SHOWN] ?: false }
+    val hintMiniPlayerSwipeShown: Flow<Boolean> = dataStore.data.map { it[KEY_HINT_MINI_PLAYER_SWIPE_SHOWN] ?: false }
 
     suspend fun setThemeMode(mode: ThemeMode) = dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     suspend fun setPureBlack(enabled: Boolean) = dataStore.edit { it[KEY_PURE_BLACK] = enabled }
@@ -302,4 +312,14 @@ class PreferencesManager(
     suspend fun setGlobalLoudnessNormalization(enabled: Boolean) = dataStore.edit { it[KEY_GLOBAL_LOUDNESS_NORMALIZATION] = enabled }
     suspend fun setGlobalVoiceBoostPreset(preset: String) = dataStore.edit { it[KEY_GLOBAL_VOICE_BOOST_PRESET] = preset }
     suspend fun setStatsEnabled(enabled: Boolean) = dataStore.edit { it[KEY_STATS_ENABLED] = enabled }
+    suspend fun setHapticFeedbackEnabled(enabled: Boolean) = dataStore.edit { it[KEY_HAPTIC_FEEDBACK_ENABLED] = enabled }
+
+    suspend fun setHintLongPressSkipShown(shown: Boolean = true) = dataStore.edit { it[KEY_HINT_LONG_PRESS_SKIP_SHOWN] = shown }
+    suspend fun setHintBookmarkShown(shown: Boolean = true) = dataStore.edit { it[KEY_HINT_BOOKMARK_SHOWN] = shown }
+    suspend fun setHintMiniPlayerSwipeShown(shown: Boolean = true) = dataStore.edit { it[KEY_HINT_MINI_PLAYER_SWIPE_SHOWN] = shown }
+    suspend fun resetFirstRunHints() = dataStore.edit {
+        it[KEY_HINT_LONG_PRESS_SKIP_SHOWN] = false
+        it[KEY_HINT_BOOKMARK_SHOWN] = false
+        it[KEY_HINT_MINI_PLAYER_SWIPE_SHOWN] = false
+    }
 }

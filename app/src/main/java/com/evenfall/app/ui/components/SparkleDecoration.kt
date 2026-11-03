@@ -13,6 +13,9 @@ fun SparkleDecorations(
     modifier: Modifier = Modifier,
     tint: Color = Color(0xFF9FA8DA).copy(alpha = 0.5f)
 ) {
+    val reducedMotion = com.evenfall.app.ui.util.rememberReducedMotion()
+    if (reducedMotion) return
+
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height

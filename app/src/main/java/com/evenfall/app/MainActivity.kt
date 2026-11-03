@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -23,9 +24,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
@@ -39,6 +42,7 @@ import com.evenfall.app.data.datastore.ThemeMode
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.playback.PlaybackManager
 import com.evenfall.app.shortcuts.EvenfallShortcutManager
+import com.evenfall.app.ui.components.FirstRunHintCard
 import com.evenfall.app.ui.components.MiniPlayer
 import com.evenfall.app.ui.navigation.Screen
 import com.evenfall.app.ui.screens.bookmarks.BookmarksHistoryScreen
@@ -100,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 colorSchemeOption = colorScheme
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    EvenfallAppNav(playbackManager, initialDestination)
+                    EvenfallAppNav(playbackManager, preferencesManager, initialDestination)
                 }
             }
         }
@@ -137,10 +141,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun EvenfallAppNav(
     playbackManager: PlaybackManager,
+    preferencesManager: PreferencesManager,
     initialDestination: String? = null
 ) {
     val navController = rememberNavController()
+    val coroutineScope = rememberCoroutineScope()
     val playbackState by playbackManager.playbackState.collectAsState()
+    val hintMiniPlayerSwipeShown by preferencesManager.hintMiniPlayerSwipeShown.collectAsState(initial = false)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -150,12 +157,15 @@ fun EvenfallAppNav(
         }
     }
 
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isTabletTwoPane = configuration.screenWidthDp >= 600 && currentRoute == Screen.Home.route
+
     val isPlayerOrOnboarding = currentRoute != null && (
         currentRoute.startsWith("player") ||
         currentRoute == Screen.Onboarding.route
     )
     val loadedBook = playbackState.currentBook
-    val showMiniPlayer = loadedBook != null && !playbackState.isMiniPlayerDismissed && !isPlayerOrOnboarding
+    val showMiniPlayer = loadedBook != null && !playbackState.isMiniPlayerDismissed && !isPlayerOrOnboarding && !isTabletTwoPane
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
@@ -182,6 +192,9 @@ fun EvenfallAppNav(
                     },
                     onOpenStats = {
                         navController.navigate(Screen.Stats.route)
+                    },
+                    onOpenScanLog = {
+                        navController.navigate(Screen.ScanLog.route)
                     },
                     hasMiniPlayer = showMiniPlayer
                 )
@@ -296,22 +309,38 @@ fun EvenfallAppNav(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             if (loadedBook != null) {
-                MiniPlayer(
-                    playbackState = playbackState,
-                    book = loadedBook,
-                    onExpand = {
-                        navController.navigate(Screen.Player.createRoute(loadedBook.id))
-                    },
-                    onDismiss = {
-                        playbackManager.dismissMiniPlayer()
-                    },
-                    onTogglePlayPause = {
-                        playbackManager.togglePlayPause()
-                    },
-                    onSkipBackward = {
-                        playbackManager.skipBackward()
-                    }
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FirstRunHintCard(
+                        text = stringResource(R.string.hint_mini_player_swipe),
+                        visible = !hintMiniPlayerSwipeShown,
+                        onDismiss = {
+                            coroutineScope.launch {
+                                preferencesManager.setHintMiniPlayerSwipeShown(true)
+                            }
+                        },
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    MiniPlayer(
+                        playbackState = playbackState,
+                        book = loadedBook,
+                        onExpand = {
+                            coroutineScope.launch {
+                                preferencesManager.setHintMiniPlayerSwipeShown(true)
+                            }
+                            navController.navigate(Screen.Player.createRoute(loadedBook.id))
+                        },
+                        onDismiss = {
+                            playbackManager.dismissMiniPlayer()
+                        },
+                        onTogglePlayPause = {
+                            playbackManager.togglePlayPause()
+                        },
+                        onSkipBackward = {
+                            playbackManager.skipBackward()
+                        }
+                    )
+                }
             }
         }
     }

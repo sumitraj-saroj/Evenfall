@@ -10,6 +10,7 @@ import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.dao.CollectionDao
+import com.evenfall.app.data.db.dao.ScanIssueDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.CollectionEntity
 import com.evenfall.app.data.db.entity.RecentSearchEntity
@@ -93,7 +94,10 @@ data class HomeUiState(
     val nextInSeriesPrompt: BookEntity? = null,
     val recentSearches: List<RecentSearchEntity> = emptyList(),
     val searchResults: SearchResults = SearchResults(),
-    val isSearchFocused: Boolean = false
+    val isSearchFocused: Boolean = false,
+    val scanIssueCount: Int = 0,
+    val isLibraryEmpty: Boolean = false,
+    val allBooksUnavailable: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.FlowPreview::class)
@@ -103,6 +107,7 @@ class HomeViewModel @Inject constructor(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val collectionDao: CollectionDao,
+    private val scanIssueDao: ScanIssueDao,
     private val preferencesManager: PreferencesManager,
     private val playbackManager: PlaybackManager,
     private val searchRepository: SearchRepository,
@@ -120,6 +125,23 @@ class HomeViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
+
+    val playbackState = playbackManager.playbackState
+
+    fun playBook(book: BookEntity) {
+        playbackManager.loadBook(book.id)
+        playbackManager.play()
+    }
+
+    fun togglePlayPause() = playbackManager.togglePlayPause()
+    fun skipBackward() = playbackManager.skipBackward()
+    fun skipForward() = playbackManager.skipForward()
+    fun seekToFraction(fraction: Float) {
+        val total = playbackManager.playbackState.value.currentBook?.totalDurationMs ?: 0L
+        if (total > 0) {
+            playbackManager.seekTo((total * fraction).toLong())
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -189,7 +211,8 @@ class HomeViewModel @Inject constructor(
         val refreshing: Boolean,
         val recentSearches: List<RecentSearchEntity>,
         val searchResults: SearchResults,
-        val isSearchFocused: Boolean
+        val isSearchFocused: Boolean,
+        val scanIssueCount: Int = 0
     )
 
     private val searchSubFlow = combine(
@@ -200,8 +223,12 @@ class HomeViewModel @Inject constructor(
         Triple(focused, recents, results)
     }
 
-    private val refreshAndSearchFlow = combine(_isRefreshing, searchSubFlow) { refreshing, searchTriple ->
-        Pair(refreshing, searchTriple)
+    private val refreshAndSearchFlow = combine(
+        _isRefreshing,
+        scanIssueDao.getIssueCount(),
+        searchSubFlow
+    ) { refreshing, issueCount, searchTriple ->
+        Triple(refreshing, issueCount, searchTriple)
     }
 
     private val dynamicStateFlow = combine(
@@ -209,12 +236,13 @@ class HomeViewModel @Inject constructor(
         collectionDao.getAllCollections(),
         playbackManager.nextInSeriesPrompt,
         refreshAndSearchFlow
-    ) { query, collections, nextInSeries, pair ->
-        val refreshing = pair.first
-        val focused = pair.second.first
-        val recents = pair.second.second
-        val results = pair.second.third
-        DynamicState(query, collections, nextInSeries, refreshing, recents, results, focused)
+    ) { query, collections, nextInSeries, triple ->
+        val refreshing = triple.first
+        val issueCount = triple.second
+        val focused = triple.third.first
+        val recents = triple.third.second
+        val results = triple.third.third
+        DynamicState(query, collections, nextInSeries, refreshing, recents, results, focused, issueCount)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -362,7 +390,10 @@ class HomeViewModel @Inject constructor(
             nextInSeriesPrompt = nextInSeries,
             recentSearches = recentSearches,
             searchResults = searchResults,
-            isSearchFocused = isSearchFocused
+            isSearchFocused = isSearchFocused,
+            scanIssueCount = dynamicState.scanIssueCount,
+            isLibraryEmpty = allBooks.isEmpty(),
+            allBooksUnavailable = allBooks.isNotEmpty() && allBooks.all { it.isUnavailable }
         )
     }.stateIn(
         scope = viewModelScope,

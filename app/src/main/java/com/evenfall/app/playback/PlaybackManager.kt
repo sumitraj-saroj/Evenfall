@@ -230,7 +230,32 @@ class PlaybackManager @Inject constructor(
                     onChapterEnded()
                 }
             }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                try {
+                    exoPlayer.pause()
+                } catch (_: Exception) {}
+                saveCurrentPosition()
+                _playbackState.value = _playbackState.value.copy(
+                    isPlaying = false,
+                    isPlaybackError = true,
+                    playbackErrorMessage = context.getString(com.evenfall.app.R.string.error_playback_file_missing_desc)
+                )
+            }
         })
+    }
+
+    fun dismissPlaybackError() {
+        _playbackState.value = _playbackState.value.copy(
+            isPlaybackError = false,
+            playbackErrorMessage = null
+        )
+    }
+
+    fun retryPlayback() {
+        val currentBook = _playbackState.value.currentBook ?: return
+        dismissPlaybackError()
+        loadBook(currentBook.id, autoPlay = true)
     }
 
     fun loadBook(book: BookEntity, autoPlay: Boolean = false) {

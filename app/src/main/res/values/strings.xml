@@ -276,4 +276,101 @@
     <string name="tile_no_book">No audiobook loaded</string>
     <string name="shortcut_continue">Continue %1$s</string>
     <string name="shortcut_library">Library</string>
+
+    <!-- Haptic Feedback -->
+    <string name="haptic_feedback_title">Haptic feedback</string>
+    <string name="haptic_feedback_desc">Subtle vibration for playback controls, bookmarks, seeking, and gestures</string>
+
+    <!-- Final Polish Pass & General UI Strings -->
+    <string name="time_left_format">%1$s left</string>
+    <string name="progress_percent_of_book">%1$d%% of book</string>
+    <string name="done">Done</string>
+    <string name="ok">OK</string>
+    <string name="back_to_library">Back to Library</string>
+    <string name="scanning_progress_simple">Scanning...</string>
+    <string name="subfolder_book_recommended">Each subfolder is a book (recommended)</string>
+    <string name="single_file_book">Each audio file is a book</string>
+    <string name="save_bookmark">Save bookmark</string>
+    <string name="bookmarks_and_history">Bookmarks &amp; History</string>
+    <string name="playback_speed_title">Playback Speed</string>
+    <string name="playback_options">Playback options</string>
+    <string name="sleep_timer_title">Sleep Timer</string>
+    <string name="end_of_chapter">End of chapter</string>
+    <string name="turn_off_sleep_timer">Turn off sleep timer</string>
+    <string name="volume_boost_title">Volume Boost</string>
+    <string name="save_this_moment">Save this moment</string>
+    <string name="filter_position">Position in book</string>
+    <string name="filter_newest_first">Newest first</string>
+    <string name="filter_oldest_first">Oldest first</string>
+    <string name="filter_all_count">All %1$d</string>
+    <string name="filter_notes_count">Notes %1$d</string>
+    <string name="filter_favorites_count">Favorites %1$d</string>
+    <string name="filter_quotes_count">Quotes %1$d</string>
+    <string name="placeholder_bookmark_title">e.g. Mira\'s theory</string>
+    <string name="note_optional_label">Note (optional)</string>
+    <string name="type_label">Type</string>
+    <string name="bookmark_type_bookmark">Bookmark</string>
+    <string name="bookmark_type_favorite">Favorite</string>
+    <string name="bookmark_type_quote">Quote</string>
+    <string name="bookmark_type_note">Note</string>
+    <string name="auto_rewind_after_pause">Auto-rewind after pause</string>
+    <string name="shake_to_extend_sleep_timer">Shake to extend sleep timer</string>
+    <string name="compact_player">Compact player</string>
+    <string name="rescan_audiobooks">Rescan audiobooks</string>
+    <string name="rescan_audiobooks_desc">Detect new, renamed, or removed files</string>
+    <string name="restore_complete">Restore Complete</string>
+    <string name="restore_failed">Restore Failed</string>
+    <string name="cd_collapse_player">Collapse player</string>
+    <string name="cd_chapter_list">Chapter list</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_previous_chapter">Previous Chapter</string>
+    <string name="cd_next_chapter">Next Chapter</string>
+    <string name="cd_undo_seek">Undo seek</string>
+    <string name="cd_sleep_timer_active">Sleep timer active</string>
+    <string name="cd_sleep_timer">Sleep timer</string>
+    <string name="cd_silence_skipping">Silence Skipping</string>
+    <string name="cd_volume_boost">Volume Boost</string>
+    <string name="cd_playback_speed_format">Playback Speed: %1$.2fx</string>
+    <string name="cd_sort_bookmarks">Sort bookmarks</string>
+    <string name="cd_remove">Remove</string>
+    <string name="cd_book_menu">Book menu</string>
+    <string name="cd_play_book">Play %1$s</string>
+    <string name="cd_decrease_skip">Decrease skip amount</string>
+    <string name="cd_increase_skip">Increase skip amount</string>
+    <string name="cd_clear_backup_folder">Clear backup folder</string>
+    <string name="cd_selected">Selected</string>
+    <string name="cd_cover_format">%1$s cover</string>
+    <string name="off">Off</string>
+
+    <!-- Empty and Error States -->
+    <string name="empty_library_title">Your library is quiet</string>
+    <string name="empty_library_desc">Select a folder containing your audiobooks to start listening.</string>
+    <string name="empty_library_action">Choose folder</string>
+    <string name="empty_search_title">No results found</string>
+    <string name="empty_search_desc">Check your spelling or try searching for another author, series, or chapter.</string>
+    <string name="empty_bookmarks_title">No bookmarks yet</string>
+    <string name="empty_bookmarks_desc">Save important moments, memorable quotes, and thoughts as you listen.</string>
+    <string name="empty_history_title">No listening history yet</string>
+    <string name="empty_history_desc">Your listening activity and sessions will appear here.</string>
+    <string name="empty_permission_title">Folder access required</string>
+    <string name="empty_permission_desc">Evenfall needs permission to read audio files from your chosen folder.</string>
+    <string name="empty_permission_action">Grant access</string>
+    <string name="skipped_corrupt_files_notice">Skipped, see scan log</string>
+    <string name="view_scan_log">View scan log</string>
+    <string name="empty_search_action">Clear search</string>
+    <string name="error_playback_title">Playback paused</string>
+    <string name="error_playback_file_missing">The audio file for this chapter could not be found.</string>
+    <string name="error_playback_file_missing_desc">The audio file for this chapter could not be accessed. It may have been moved, renamed, or on a detached storage.</string>
+    <string name="error_playback_retry">Retry</string>
+    <string name="error_playback_locate">Locate file</string>
+    <string name="error_playback_dismiss">Dismiss</string>
+
+    <!-- First-Run Hints -->
+    <string name="hint_long_press_skip">Long-press skip to change the amount</string>
+    <string name="hint_bookmark">Tap Save this moment to bookmark</string>
+    <string name="hint_mini_player_swipe">Swipe the mini player up to open it</string>
+    <string name="reset_tips_title">Reset hints and tips</string>
+    <string name="reset_tips_desc">Show helpful first-run gestures and tips again</string>
+    <string name="reset_tips_action">Reset hints</string>
+    <string name="reset_tips_done">Hints have been reset</string>
 </resources>
