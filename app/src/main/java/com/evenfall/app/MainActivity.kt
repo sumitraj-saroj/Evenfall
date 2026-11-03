@@ -4,22 +4,37 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.datastore.ThemeMode
+import com.evenfall.app.playback.PlaybackManager
+import com.evenfall.app.ui.components.MiniPlayer
 import com.evenfall.app.ui.navigation.Screen
 import com.evenfall.app.ui.screens.bookmarks.BookmarksHistoryScreen
+import com.evenfall.app.ui.screens.fixlibrary.FixLibraryScreen
 import com.evenfall.app.ui.screens.home.HomeScreen
 import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
 import com.evenfall.app.ui.screens.player.PlayerScreen
@@ -34,6 +49,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferencesManager: PreferencesManager
+
+    @Inject
+    lateinit var playbackManager: PlaybackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +73,7 @@ class MainActivity : ComponentActivity() {
                 colorSchemeOption = colorScheme
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    EvenfallAppNav()
+                    EvenfallAppNav(playbackManager)
                 }
             }
         }
@@ -63,71 +81,133 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun EvenfallAppNav() {
+fun EvenfallAppNav(playbackManager: PlaybackManager) {
     val navController = rememberNavController()
+    val playbackState by playbackManager.playbackState.collectAsState()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Home.route
-    ) {
-        composable(Screen.Home.route) {
-            HomeScreen(
-                onOpenBook = { bookId ->
-                    navController.navigate(Screen.Player.createRoute(bookId))
-                },
-                onOpenSettings = {
-                    navController.navigate(Screen.Settings.route)
-                },
-                onOpenAddFolder = {
-                    navController.navigate(Screen.Onboarding.route)
-                }
-            )
-        }
+    val isPlayerOrOnboarding = currentRoute != null && (
+        currentRoute.startsWith("player") ||
+        currentRoute == Screen.Onboarding.route
+    )
+    val loadedBook = playbackState.currentBook
+    val showMiniPlayer = loadedBook != null && !playbackState.isMiniPlayerDismissed && !isPlayerOrOnboarding
 
-        composable(Screen.Onboarding.route) {
-            OnboardingScreen(
-                onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onOpenBook = { bookId ->
+                        navController.navigate(Screen.Player.createRoute(bookId))
+                    },
+                    onOpenSettings = {
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    onOpenAddFolder = {
+                        navController.navigate(Screen.Onboarding.route)
+                    },
+                    onOpenFixLibrary = {
+                        navController.navigate(Screen.FixLibrary.route)
+                    },
+                    hasMiniPlayer = showMiniPlayer
+                )
+            }
+
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(
+                    onNavigateToHome = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        }
+                    },
+                    onBack = {
+                        navController.popBackStack()
                     }
-                },
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
+                )
+            }
+
+            composable(
+                route = Screen.Player.route,
+                arguments = listOf(navArgument("bookId") { type = NavType.LongType })
+            ) {
+                PlayerScreen(
+                    onCollapse = {
+                        navController.popBackStack()
+                    },
+                    onOpenBookmarks = { bookId ->
+                        navController.navigate(Screen.BookmarksHistory.createRoute(bookId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.BookmarksHistory.route,
+                arguments = listOf(navArgument("bookId") { type = NavType.LongType })
+            ) {
+                BookmarksHistoryScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    hasMiniPlayer = showMiniPlayer
+                )
+            }
+
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(Screen.FixLibrary.route) {
+                FixLibraryScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    hasMiniPlayer = showMiniPlayer
+                )
+            }
         }
 
-        composable(
-            route = Screen.Player.route,
-            arguments = listOf(navArgument("bookId") { type = NavType.LongType })
+        AnimatedVisibility(
+            visible = showMiniPlayer,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(300)
+            ) + fadeIn(),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(250)
+            ) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            PlayerScreen(
-                onCollapse = {
-                    navController.popBackStack()
-                },
-                onOpenBookmarks = { bookId ->
-                    navController.navigate(Screen.BookmarksHistory.createRoute(bookId))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.BookmarksHistory.route,
-            arguments = listOf(navArgument("bookId") { type = NavType.LongType })
-        ) {
-            BookmarksHistoryScreen(
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
+            if (loadedBook != null) {
+                MiniPlayer(
+                    playbackState = playbackState,
+                    book = loadedBook,
+                    onExpand = {
+                        navController.navigate(Screen.Player.createRoute(loadedBook.id))
+                    },
+                    onDismiss = {
+                        playbackManager.dismissMiniPlayer()
+                    },
+                    onTogglePlayPause = {
+                        playbackManager.togglePlayPause()
+                    },
+                    onSkipBackward = {
+                        playbackManager.skipBackward()
+                    }
+                )
+            }
         }
     }
 }

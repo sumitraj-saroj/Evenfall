@@ -37,4 +37,13 @@ class PositionMemoryTest {
         assertEquals(0L, state.totalTimeRemainingMs)
         assertEquals(0L, state.chapterTimeRemainingMs)
     }
+
+    @Test
+    fun testMiniPlayerDismissedState() {
+        val state = PlaybackState(isMiniPlayerDismissed = false)
+        org.junit.Assert.assertFalse(state.isMiniPlayerDismissed)
+
+        val dismissedState = state.copy(isMiniPlayerDismissed = true)
+        org.junit.Assert.assertTrue(dismissedState.isMiniPlayerDismissed)
+    }
 }

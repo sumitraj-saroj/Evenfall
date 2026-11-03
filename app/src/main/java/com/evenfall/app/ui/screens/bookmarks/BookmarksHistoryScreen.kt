@@ -87,7 +87,8 @@ import com.evenfall.app.util.TimeUtils
 @Composable
 fun BookmarksHistoryScreen(
     onBack: () -> Unit,
-    viewModel: BookmarksHistoryViewModel = hiltViewModel()
+    viewModel: BookmarksHistoryViewModel = hiltViewModel(),
+    hasMiniPlayer: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val book = uiState.book
@@ -366,7 +367,7 @@ fun BookmarksHistoryScreen(
 
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 90.dp)
+                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 90.dp)
                     ) {
                         allDisplayChapterIndices.forEach { chapterIdx ->
                             val bList = bookmarkChapters[chapterIdx] ?: emptyList()
@@ -411,7 +412,7 @@ fun BookmarksHistoryScreen(
                     val groupedHistory = uiState.historyEvents.groupBy { TimeUtils.formatHistoryTimeGroup(it.timestamp) }
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(20.dp),
-                        contentPadding = PaddingValues(bottom = 40.dp)
+                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 40.dp)
                     ) {
                         groupedHistory.forEach { (timeGroup, events) ->
                             item {

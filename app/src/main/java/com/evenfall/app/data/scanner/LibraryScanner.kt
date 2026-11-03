@@ -9,6 +9,8 @@ import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.ChapterEntity
 import com.evenfall.app.data.parser.AudioMetadataParser
+import com.evenfall.app.data.parser.CoverArtResolver
+import com.evenfall.app.data.parser.FolderImageCandidate
 import com.evenfall.app.data.parser.TitleSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +54,7 @@ sealed class ScanProgress {
 class LibraryScanner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val metadataParser: AudioMetadataParser,
+    private val coverArtResolver: CoverArtResolver,
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao
 ) {
@@ -82,6 +85,17 @@ class LibraryScanner @Inject constructor(
                         folderName = rootDoc.name,
                         fileName = fallbackTitle
                     )
+                    val resolvedCover = if (meta.coverPath != null) {
+                        meta.coverPath
+                    } else {
+                        val parent = doc.parentFile ?: rootDoc
+                        val folderCandidates = findFolderImageCandidates(parent)
+                        coverArtResolver.resolveCover(
+                            manualOverrideUri = null,
+                            embeddedArtPath = null,
+                            folderCandidates = folderCandidates
+                        ).path
+                    }
                     val scannedFile = ScannedAudioFile(
                         name = rawName,
                         uri = doc.uri,
@@ -89,7 +103,7 @@ class LibraryScanner @Inject constructor(
                         author = meta.author,
                         durationMs = meta.durationMs,
                         trackNumber = meta.trackNumber,
-                        coverPath = meta.coverPath,
+                        coverPath = resolvedCover,
                         album = meta.album
                     )
                     books.add(
@@ -98,7 +112,7 @@ class LibraryScanner @Inject constructor(
                             author = meta.author,
                             durationMs = meta.durationMs,
                             fileCount = 1,
-                            coverPath = meta.coverPath,
+                            coverPath = resolvedCover,
                             folderUri = doc.uri.toString(),
                             identifier = doc.uri.toString(),
                             files = listOf(scannedFile)
@@ -112,12 +126,15 @@ class LibraryScanner @Inject constructor(
                 val looseAudioFiles = children.filter { isAudioFile(it) }
 
                 for (dir in subdirectories) {
-                    val audioFiles = findAudioFilesDirect(dir)
+                    val allDirChildren = dir.listFiles()
+                    val audioFiles = allDirChildren.filter { isAudioFile(it) }
                     if (audioFiles.isNotEmpty()) {
+                        val folderCandidates = findFolderImageCandidates(allDirChildren)
                         val book = processAudiobookFiles(
                             folderName = dir.name ?: "Unknown Book",
                             folderUri = dir.uri.toString(),
                             files = audioFiles,
+                            folderCandidates = folderCandidates,
                             naturalComparator = naturalComparator
                         )
                         books.add(book)
@@ -127,10 +144,12 @@ class LibraryScanner @Inject constructor(
                 // If root folder also has loose audio files, check if they make up a book
                 if (looseAudioFiles.isNotEmpty()) {
                     val rootName = rootDoc.name ?: "Audiobooks"
+                    val folderCandidates = findFolderImageCandidates(children)
                     val book = processAudiobookFiles(
                         folderName = rootName,
                         folderUri = rootDoc.uri.toString(),
                         files = looseAudioFiles,
+                        folderCandidates = folderCandidates,
                         naturalComparator = naturalComparator
                     )
                     books.add(book)
@@ -175,17 +194,20 @@ class LibraryScanner @Inject constructor(
                 bookDao.insert(newBook)
             }
 
-            // Save chapters
+            // Save chapters while PRESERVING existing chapter title overrides!
+            val existingChapters = chapterDao.getChaptersForBookSync(bookId).associateBy { it.chapterIndex }
             chapterDao.deleteChaptersForBook(bookId)
             val chapters = mutableListOf<ChapterEntity>()
             var runningOffset = 0L
 
             scanned.files.forEachIndexed { index, file ->
+                val prevOverride = existingChapters[index]?.titleOverride
                 chapters.add(
                     ChapterEntity(
                         bookId = bookId,
                         chapterIndex = index,
                         title = file.title.ifEmpty { "Chapter ${index + 1}" },
+                        titleOverride = prevOverride,
                         startMs = runningOffset,
                         durationMs = file.durationMs,
                         fileUri = file.uri.toString()
@@ -201,6 +223,7 @@ class LibraryScanner @Inject constructor(
         folderName: String,
         folderUri: String,
         files: List<DocumentFile>,
+        folderCandidates: List<FolderImageCandidate> = emptyList(),
         naturalComparator: Comparator<String>
     ): ScannedBookPreview {
         val parsedFiles = files.map { doc ->
@@ -242,7 +265,12 @@ class LibraryScanner @Inject constructor(
             fileName = firstFileName
         )
         val totalDuration = sortedFiles.sumOf { it.durationMs }
-        val cover = sortedFiles.firstOrNull { it.coverPath != null }?.coverPath
+        val embeddedCover = sortedFiles.firstOrNull { it.coverPath != null }?.coverPath
+        val cover = coverArtResolver.resolveCover(
+            manualOverrideUri = null,
+            embeddedArtPath = embeddedCover,
+            folderCandidates = folderCandidates
+        ).path
 
         return ScannedBookPreview(
             title = title,
@@ -254,6 +282,23 @@ class LibraryScanner @Inject constructor(
             identifier = folderUri,
             files = sortedFiles
         )
+    }
+
+    private fun findFolderImageCandidates(dir: DocumentFile): List<FolderImageCandidate> {
+        return findFolderImageCandidates(dir.listFiles())
+    }
+
+    private fun findFolderImageCandidates(files: Array<DocumentFile>): List<FolderImageCandidate> {
+        return files
+            .filter { !it.isDirectory && CoverArtResolver.isSupportedFolderImage(it.name ?: "") }
+            .map { doc ->
+                FolderImageCandidate(
+                    fileName = doc.name ?: "",
+                    uriString = doc.uri.toString(),
+                    lastModified = doc.lastModified(),
+                    sizeBytes = doc.length()
+                )
+            }
     }
 
     private fun findAudioFilesDirect(dir: DocumentFile): List<DocumentFile> {

@@ -28,5 +28,9 @@ data class ChapterEntity(
     val title: String,
     val startMs: Long,
     val durationMs: Long,
-    val fileUri: String
-)
+    val fileUri: String,
+    val titleOverride: String? = null
+) {
+    val displayTitle: String
+        get() = titleOverride?.takeIf { it.isNotBlank() } ?: title
+}

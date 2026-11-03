@@ -62,6 +62,7 @@ class PlaybackManager @Inject constructor(
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var positionTickerJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var autoMarkFinishedEnabled: Boolean = true
 
     private var lastPauseTimestamp: Long = 0L
     private var interruptionStartTimestamp: Long = 0L
@@ -73,6 +74,27 @@ class PlaybackManager @Inject constructor(
     init {
         setupPlayerListener()
         startPositionTicker()
+        restoreLastPlayedBookIfAvailable()
+        observeAutoMarkPreference()
+    }
+
+    private fun observeAutoMarkPreference() {
+        scope.launch {
+            preferencesManager.autoMarkFinished.collect { enabled ->
+                autoMarkFinishedEnabled = enabled
+            }
+        }
+    }
+
+    private fun restoreLastPlayedBookIfAvailable() {
+        scope.launch {
+            try {
+                val mostRecent = bookDao.getMostRecentlyPlayedBook().first()
+                if (mostRecent != null && mostRecent.currentPositionMs > 0 && _playbackState.value.currentBook == null) {
+                    loadBook(mostRecent.id, autoPlay = false)
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun setupPlayerListener() {
@@ -109,7 +131,8 @@ class PlaybackManager @Inject constructor(
                 chapterPositionMs = book.chapterPositionMs,
                 chapterDurationMs = currentChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
                 totalPositionMs = book.currentPositionMs,
-                totalDurationMs = book.totalDurationMs
+                totalDurationMs = book.totalDurationMs,
+                isMiniPlayerDismissed = false
             )
 
             // Setup ExoPlayer MediaItem
@@ -199,6 +222,12 @@ class PlaybackManager @Inject constructor(
         } else {
             play()
         }
+    }
+
+    fun dismissMiniPlayer() {
+        pause()
+        saveCurrentPosition()
+        _playbackState.value = _playbackState.value.copy(isMiniPlayerDismissed = true)
     }
 
     fun skipForward() {
@@ -298,7 +327,25 @@ class PlaybackManager @Inject constructor(
             pause()
             scope.launch {
                 state.currentBook?.let { book ->
-                    bookDao.update(book.copy(isFinished = true, currentPositionMs = book.totalDurationMs))
+                    val shouldFinish = AutoMarkFinishedEvaluator.shouldAutoMarkFinished(
+                        totalPositionMs = book.totalDurationMs,
+                        totalDurationMs = book.totalDurationMs,
+                        isLastChapterEnded = true,
+                        isAutoMarkEnabled = autoMarkFinishedEnabled,
+                        isAlreadyFinished = book.isFinished
+                    )
+                    if (shouldFinish) {
+                        val now = System.currentTimeMillis()
+                        val finishedBook = book.copy(
+                            isFinished = true,
+                            finishedAt = now,
+                            currentPositionMs = book.totalDurationMs
+                        )
+                        _playbackState.value = _playbackState.value.copy(currentBook = finishedBook)
+                        bookDao.update(finishedBook)
+                    } else {
+                        bookDao.update(book.copy(currentPositionMs = book.totalDurationMs))
+                    }
                 }
             }
         }
@@ -490,13 +537,34 @@ class PlaybackManager @Inject constructor(
                     val currentPos = exoPlayer.currentPosition
                     val duration = if (exoPlayer.duration > 0) exoPlayer.duration else _playbackState.value.chapterDurationMs
                     val startOffset = _playbackState.value.currentChapter?.startMs ?: 0L
+                    val totalPos = startOffset + currentPos
 
                     _playbackState.value = _playbackState.value.copy(
                         chapterPositionMs = currentPos,
                         chapterDurationMs = duration,
-                        totalPositionMs = startOffset + currentPos
+                        totalPositionMs = totalPos
                     )
                     saveCurrentPosition()
+
+                    // Auto-mark finished when reaching >= 98%
+                    val book = _playbackState.value.currentBook
+                    if (book != null && !book.isFinished) {
+                        val shouldFinish = AutoMarkFinishedEvaluator.shouldAutoMarkFinished(
+                            totalPositionMs = totalPos,
+                            totalDurationMs = book.totalDurationMs,
+                            isLastChapterEnded = false,
+                            isAutoMarkEnabled = autoMarkFinishedEnabled,
+                            isAlreadyFinished = book.isFinished
+                        )
+                        if (shouldFinish) {
+                            val now = System.currentTimeMillis()
+                            val finishedBook = book.copy(isFinished = true, finishedAt = now)
+                            _playbackState.value = _playbackState.value.copy(currentBook = finishedBook)
+                            scope.launch(Dispatchers.IO) {
+                                bookDao.updateFinishedStatus(book.id, finished = true, finishedAt = now)
+                            }
+                        }
+                    }
                 }
                 delay(1000L)
             }

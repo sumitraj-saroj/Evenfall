@@ -12,6 +12,12 @@ interface HistoryDao {
     @Query("SELECT * FROM history WHERE bookId = :bookId ORDER BY timestamp DESC")
     fun getHistoryForBook(bookId: Long): Flow<List<HistoryEntity>>
 
+    @Query("SELECT * FROM history WHERE bookId = :bookId ORDER BY timestamp DESC")
+    suspend fun getHistoryForBookSync(bookId: Long): List<HistoryEntity>
+
+    @Query("UPDATE history SET bookId = :newBookId WHERE bookId = :oldBookId")
+    suspend fun transferHistoryToBook(oldBookId: Long, newBookId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(history: HistoryEntity): Long
 

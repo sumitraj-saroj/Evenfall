@@ -23,4 +23,10 @@ interface ChapterDao {
 
     @Query("DELETE FROM chapters WHERE bookId = :bookId")
     suspend fun deleteChaptersForBook(bookId: Long)
+
+    @Query("UPDATE chapters SET titleOverride = :titleOverride WHERE id = :chapterId")
+    suspend fun updateChapterTitleOverride(chapterId: Long, titleOverride: String?)
+
+    @Query("UPDATE chapters SET titleOverride = NULL WHERE bookId = :bookId")
+    suspend fun resetChapterOverridesForBook(bookId: Long)
 }

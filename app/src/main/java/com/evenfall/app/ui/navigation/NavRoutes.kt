@@ -10,4 +10,5 @@ sealed class Screen(val route: String) {
         fun createRoute(bookId: Long) = "bookmarks_history/$bookId"
     }
     data object Settings : Screen("settings")
+    data object FixLibrary : Screen("fix_library")
 }

@@ -22,10 +22,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,7 +41,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -50,15 +60,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.evenfall.app.R
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.BookCoverArt
+import com.evenfall.app.ui.components.EditBookDetailsDialog
 import com.evenfall.app.ui.components.SparkleDecorations
+import androidx.compose.material.icons.filled.Warning
 import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
@@ -69,10 +83,15 @@ fun HomeScreen(
     onOpenBook: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAddFolder: () -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    onOpenFixLibrary: () -> Unit = {},
+    viewModel: HomeViewModel = hiltViewModel(),
+    hasMiniPlayer: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showSortMenu by remember { mutableStateOf(false) }
+    var bookToEdit by remember { mutableStateOf<BookEntity?>(null) }
+    var bookToResetPositionPrompt by remember { mutableStateOf<BookEntity?>(null) }
+    var bookToExplainUnavailable by remember { mutableStateOf<BookEntity?>(null) }
 
     Box(
         modifier = Modifier
@@ -152,6 +171,9 @@ fun HomeScreen(
                     .padding(paddingValues)
                     .padding(horizontal = 20.dp)
                     .navigationBarsPadding(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    bottom = if (hasMiniPlayer) 88.dp else 24.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 // Greeting Header (in Serif font matching Image 1)
@@ -174,12 +196,65 @@ fun HomeScreen(
                     }
                 }
 
+                // Lost-Folder Warning Banner
+                if (uiState.hasUnavailableBooks) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.lost_folder_banner_title),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = stringResource(R.string.lost_folder_banner_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = onOpenFixLibrary,
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.fix_library))
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Hero Card: Continue Listening (matching Image 1)
                 uiState.heroBook?.let { hero ->
                     item {
                         ContinueListeningHeroCard(
                             book = hero,
-                            onClick = { onOpenBook(hero.id) }
+                            onClick = {
+                                if (hero.isUnavailable) bookToExplainUnavailable = hero
+                                else onOpenBook(hero.id)
+                            },
+                            onEditDetails = { bookToEdit = hero },
+                            onMarkFinished = { viewModel.markAsFinished(hero.id) }
                         )
                     }
                 }
@@ -272,7 +347,13 @@ fun HomeScreen(
                                 uiState.currentBooks.forEachIndexed { index, book ->
                                     CurrentBookRow(
                                         book = book,
-                                        onClick = { onOpenBook(book.id) }
+                                        onClick = {
+                                            if (book.isUnavailable) bookToExplainUnavailable = book
+                                            else onOpenBook(book.id)
+                                        },
+                                        onEditDetails = { bookToEdit = book },
+                                        onMarkFinished = { viewModel.markAsFinished(book.id) },
+                                        onMarkUnfinished = { bookToResetPositionPrompt = book }
                                     )
                                     if (index < uiState.currentBooks.size - 1) {
                                         Spacer(modifier = Modifier.height(12.dp))
@@ -297,7 +378,38 @@ fun HomeScreen(
                     items(uiState.notStartedBooks) { book ->
                         CurrentBookRow(
                             book = book,
-                            onClick = { onOpenBook(book.id) }
+                            onClick = {
+                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                else onOpenBook(book.id)
+                            },
+                            onEditDetails = { bookToEdit = book },
+                            onMarkFinished = { viewModel.markAsFinished(book.id) },
+                            onMarkUnfinished = { bookToResetPositionPrompt = book }
+                        )
+                    }
+                }
+
+                // "Finished" Section
+                if (uiState.finishedBooks.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Finished",
+                            fontFamily = SerifFont,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
+                    items(uiState.finishedBooks) { book ->
+                        CurrentBookRow(
+                            book = book,
+                            onClick = {
+                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                else onOpenBook(book.id)
+                            },
+                            onEditDetails = { bookToEdit = book },
+                            onMarkFinished = { viewModel.markAsFinished(book.id) },
+                            onMarkUnfinished = { bookToResetPositionPrompt = book }
                         )
                     }
                 }
@@ -342,19 +454,105 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (bookToEdit != null) {
+            EditBookDetailsDialog(
+                book = bookToEdit!!,
+                onDismiss = { bookToEdit = null },
+                onSave = { title, author, narrator, seriesName, seriesOrder, coverUri ->
+                    viewModel.updateMetadataOverrides(
+                        bookToEdit!!.id,
+                        title,
+                        author,
+                        narrator,
+                        seriesName,
+                        seriesOrder,
+                        coverUri
+                    )
+                    bookToEdit = null
+                },
+                onResetToOriginal = {
+                    viewModel.resetMetadataOverrides(bookToEdit!!.id)
+                    bookToEdit = null
+                }
+            )
+        }
+
+        if (bookToResetPositionPrompt != null) {
+            AlertDialog(
+                onDismissRequest = { bookToResetPositionPrompt = null },
+                title = { Text(stringResource(R.string.mark_as_not_started)) },
+                text = { Text(stringResource(R.string.reset_playback_position_prompt)) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.markAsUnfinished(bookToResetPositionPrompt!!.id, resetPosition = true)
+                            bookToResetPositionPrompt = null
+                        },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.start_over))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.markAsUnfinished(bookToResetPositionPrompt!!.id, resetPosition = false)
+                            bookToResetPositionPrompt = null
+                        },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.keep_position))
+                    }
+                }
+            )
+        }
+
+        if (bookToExplainUnavailable != null) {
+            AlertDialog(
+                onDismissRequest = { bookToExplainUnavailable = null },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text(stringResource(R.string.folder_unavailable_title)) },
+                text = {
+                    Text(stringResource(R.string.folder_unavailable_explanation, bookToExplainUnavailable!!.displayTitle))
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            bookToExplainUnavailable = null
+                            onOpenFixLibrary()
+                        },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.relink_folder))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { bookToExplainUnavailable = null },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
     }
 }
 
 @Composable
 fun ContinueListeningHeroCard(
     book: BookEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEditDetails: () -> Unit = {},
+    onMarkFinished: () -> Unit = {}
 ) {
     val progressFraction = if (book.totalDurationMs > 0) {
         (book.currentPositionMs.toFloat() / book.totalDurationMs).coerceIn(0f, 1f)
     } else 0f
     val progressPercent = (progressFraction * 100).toInt()
     val timeLeftMs = (book.totalDurationMs - book.currentPositionMs).coerceAtLeast(0L)
+    var showHeroMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier
@@ -379,9 +577,9 @@ fun ContinueListeningHeroCard(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BookCoverArt(
-                        title = book.title,
-                        author = book.author,
-                        coverPath = book.coverUri,
+                        title = book.displayTitle,
+                        author = book.displayAuthor,
+                        coverPath = book.displayCoverUri,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.size(84.dp)
                     )
@@ -397,7 +595,7 @@ fun ContinueListeningHeroCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = book.title,
+                            text = book.displayTitle,
                             fontFamily = SerifFont,
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Bold,
@@ -407,13 +605,47 @@ fun ContinueListeningHeroCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = book.author,
+                            text = book.displayAuthor,
                             fontFamily = SerifFont,
                             fontSize = 13.sp,
                             color = Color(0xFF1E293B).copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
+
+                    Box {
+                        IconButton(
+                            onClick = { showHeroMenu = true },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
+                                tint = Color(0xFF1E3A8A)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showHeroMenu,
+                            onDismissRequest = { showHeroMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.edit_details)) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = {
+                                    showHeroMenu = false
+                                    onEditDetails()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.mark_as_finished)) },
+                                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
+                                onClick = {
+                                    showHeroMenu = false
+                                    onMarkFinished()
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -466,7 +698,7 @@ fun ContinueListeningHeroCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play ${book.title}",
+                            contentDescription = "Play ${book.displayTitle}",
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
@@ -477,77 +709,198 @@ fun ContinueListeningHeroCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrentBookRow(
     book: BookEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEditDetails: () -> Unit = {},
+    onMarkFinished: () -> Unit = {},
+    onMarkUnfinished: () -> Unit = {},
+    onReLink: (() -> Unit)? = null
 ) {
     val progressFraction = if (book.totalDurationMs > 0) {
         (book.currentPositionMs.toFloat() / book.totalDurationMs).coerceIn(0f, 1f)
     } else 0f
     val timeLeftMs = (book.totalDurationMs - book.currentPositionMs).coerceAtLeast(0L)
+    var showMenu by remember { mutableStateOf(false) }
 
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.Transparent,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.StartToEnd || dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                if (!book.isFinished) {
+                    onMarkFinished()
+                } else {
+                    onMarkUnfinished()
+                }
+            }
+            false
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val alignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+            val icon = if (!book.isFinished) Icons.Default.Check else Icons.Default.Replay
+            val iconDesc = if (!book.isFinished) {
+                stringResource(R.string.mark_as_finished)
+            } else {
+                stringResource(R.string.mark_as_not_started)
+            }
+            val bgColor = if (!book.isFinished) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.tertiaryContainer
+            }
+            val tint = if (!book.isFinished) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onTertiaryContainer
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(bgColor)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = iconDesc,
+                    tint = tint,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
         ) {
-            BookCoverArt(
-                title = book.title,
-                author = book.author,
-                coverPath = book.coverUri,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(52.dp)
-            )
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = book.title,
-                    fontFamily = SerifFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BookCoverArt(
+                    title = book.displayTitle,
+                    author = book.displayAuthor,
+                    coverPath = book.displayCoverUri,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(52.dp)
                 )
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = book.author,
-                    fontFamily = SerifFont,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(4.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        strokeCap = StrokeCap.Round
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = TimeUtils.formatTimeLeft(timeLeftMs),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = book.displayTitle,
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Text(
+                        text = book.displayAuthor,
+                        fontFamily = SerifFont,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (book.isUnavailable) {
+                        Text(
+                            text = stringResource(R.string.folder_unavailable),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else if (book.isFinished && book.finishedAt != null) {
+                        Text(
+                            text = stringResource(R.string.finished_on, TimeUtils.formatDate(book.finishedAt)),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { progressFraction },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                strokeCap = StrokeCap.Round
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = TimeUtils.formatTimeLeft(timeLeftMs),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit_details)) },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                onEditDetails()
+                            }
+                        )
+                        if (!book.isFinished) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.mark_as_finished)) },
+                                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onMarkFinished()
+                                }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.mark_as_not_started)) },
+                                leadingIcon = { Icon(Icons.Default.Replay, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onMarkUnfinished()
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

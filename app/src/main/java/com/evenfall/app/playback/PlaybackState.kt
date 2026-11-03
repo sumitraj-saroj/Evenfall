@@ -17,7 +17,8 @@ data class PlaybackState(
     val sleepTimerIsActive: Boolean = false,
     val silenceSkippingEnabled: Boolean = false,
     val volumeBoostLevel: Float = 0f,
-    val undoSeekPositionMs: Long? = null
+    val undoSeekPositionMs: Long? = null,
+    val isMiniPlayerDismissed: Boolean = false
 ) {
     val chapterProgressFraction: Float
         get() = if (chapterDurationMs > 0) {

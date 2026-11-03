@@ -21,6 +21,12 @@ interface BookmarkDao {
     @Query("SELECT COUNT(*) FROM bookmarks WHERE bookId = :bookId")
     fun getBookmarkCountForBook(bookId: Long): Flow<Int>
 
+    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId")
+    suspend fun getBookmarksForBookSync(bookId: Long): List<BookmarkEntity>
+
+    @Query("UPDATE bookmarks SET bookId = :newBookId WHERE bookId = :oldBookId")
+    suspend fun transferBookmarksToBook(oldBookId: Long, newBookId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(bookmark: BookmarkEntity): Long
 
