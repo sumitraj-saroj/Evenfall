@@ -99,14 +99,42 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
      - Skip amount stepper (`[-]` and `[+]` with live button preview, default 20 seconds).
      - Auto-rewind after pause toggle (rewinds proportionally to pause duration).
      - Shake-to-extend accelerometer toggle.
-   - Library & Backup: Rescan audiobooks, automatic daily backups, export bookmarks, scan log.
-   - About: Evenfall v1.3.0, open-source licenses, 100% offline guarantee.
+   - Library & Backup: Rescan audiobooks, automatic daily backups, export bookmarks, scan log, manage collections.
+   - About: Evenfall v1.4.0, open-source licenses, 100% offline guarantee.
 
 13. **Android Auto**:
    - `MediaLibraryService` with driver-safe browsable catalog (Continue Listening, All Books, Chapters).
    - Compliant with Android automotive media standards (`@xml/automotive_app_desc`).
 
-14. **Automatic Local Backups & Safe Restore (v1.3.0)**:
+14. **Series and Authors Organization (v1.4.0)**:
+   - Automatic series tag parsing from M4B metadata atoms (`mvnm`/`mvin`, `series`/`series-part`) and album name regex patterns ("Series #N", "Vol. N"), falling back to manual metadata editor overrides.
+   - Dedicated Library segmented tabs: **Books / Series / Authors**.
+   - **Series View**: organizes books in reading order with "Book N of M" badges, total duration, finished counts, and aggregate series listening progress.
+   - **Author View**: groups books by author with total listening time and book count.
+   - **Auto-Play Next in Series**: background setting (default off) and end-of-book interactive prompt ("Up next: <title>. Play now / Not now").
+
+15. **Grid/List Toggle & Sort/Filter Sheet (v1.4.0)**:
+   - Instant toggle between comfortable list view and cover grid (2 columns on phones, adaptive on tablets), persisted across app restarts in DataStore.
+   - Material 3 sort and filter bottom sheet:
+     - Sort by: Recently played, Title, Author, Duration, Progress (%), and Date added, with ascending/descending toggle.
+     - Filter by: Listening status (Not started, In progress, Finished), Collections, Series-only, and Unavailable books.
+   - Active filters shown as interactive removable chips above the library.
+
+16. **Search Beyond Titles with Room FTS4 (v1.4.0)**:
+   - High-speed Room FTS4 full-text search indexing titles, authors, series, narrator, chapter titles, and bookmark notes.
+   - Sub-100ms response over 500+ books (measured at < 15 ms).
+   - Results grouped into **Books**, **Chapters**, and **Bookmarks & Notes**.
+   - Tapping a bookmark or chapter result opens the book and immediately seeks to that position.
+   - Local recent search history with quick-recall and one-tap clearing.
+
+17. **User Collections & Tagging (v1.4.0)**:
+   - Lightweight, user-defined collections (e.g. "Favorites", "Sci-Fi", "Self-help").
+   - A book can belong to multiple collections simultaneously via Room cross-references (`book_collection_cross_ref`).
+   - "Add to collection" dialog with checkboxes and inline new collection creation from any book overflow menu.
+   - Dedicated **Manage Collections** screen (`Screen.ManageCollections`) with rename, delete (safely keeping books), and up/down reordering.
+   - Collections displayed as filter chips on Home and in the sort/filter bottom sheet.
+
+18. **Automatic Local Backups & Safe Restore (v1.3.0)**:
    - SAF tree URI picker for designated backup directory (no backups run until a folder is chosen).
    - WorkManager periodic background work (`DailyBackupWorker`) scheduled daily when the device is idle and battery-friendly.
    - Automatic 7-backup rolling retention policy (`evenfall-backup-YYYY-MM-DD.json`), automatically deleting older backups.
@@ -150,23 +178,25 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
 app/src/main/java/com/evenfall/app/
 ├── data/
 │   ├── backup/          # BackupManager, Serializer, Rotator, MergeEngine, Worker
-│   ├── datastore/       # DataStore preferences (theme, skip amount, scan mode)
-│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3)
-│   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao, ScanIssueDao
-│   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity, ScanIssueEntity
-│   ├── parser/          # AudioMetadataParser & natural order filename sorter
-│   ├── repository/      # LibraryRepository
+│   ├── datastore/       # DataStore preferences (theme, skip amount, scan mode, sort, filter, view mode)
+│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3, 3->4)
+│   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao, ScanIssueDao, CollectionDao, SearchDao
+│   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity, ScanIssueEntity, CollectionEntity, BookCollectionCrossRef, RecentSearchEntity, SearchIndexFtsEntity
+│   ├── parser/          # AudioMetadataParser, SeriesTagParser, natural order filename sorter
+│   ├── repository/      # LibraryRepository, SearchRepository (Room FTS4 indexing & query)
 │   ├── scanner/         # Resilient LibraryScanner & LibraryRelinker
 │   ├── synthetic/       # SyntheticLibraryGenerator (debug 500+ books stress testing)
 │   └── DemoDataSeeder.kt# Sample book seeder matching screenshots
 ├── di/                  # Hilt Dependency Injection (DatabaseModule)
-├── playback/            # Media3 MediaLibraryService, PlaybackManager, ShakeDetector
+├── playback/            # Media3 MediaLibraryService, PlaybackManager (auto-play next in series), ShakeDetector
 ├── ui/
-│   ├── components/      # CookieShape, WavyProgressLine, MorphingPlayPauseButton
-│   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings, ScanLog)
+│   ├── components/      # CookieShape, SortFilterBottomSheet, AddToCollectionDialog, BookCoverArt
+│   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings, ScanLog, ManageCollections)
 │   ├── screens/
 │   │   ├── bookmarks/   # BookmarksHistoryScreen & BookmarksTimeline
-│   │   ├── home/        # HomeScreen & ContinueListeningHeroCard
+│   │   ├── collections/ # ManageCollectionsScreen & ManageCollectionsViewModel
+│   │   ├── fixlibrary/  # FixLibraryScreen (re-linking lost storage)
+│   │   ├── home/        # HomeScreen, LibraryViews (Grid/List, Series, Authors), SearchViews (FTS & Recents)
 │   │   ├── onboarding/  # OnboardingScreen & ScannedBookPreview
 │   │   ├── player/      # PlayerScreen & PlayerTheming
 │   │   ├── scanlog/     # ScanLogScreen & ScanLogViewModel
