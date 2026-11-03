@@ -105,6 +105,15 @@ interface BookDao {
     @Query("UPDATE books SET isUnavailable = :isUnavailable WHERE folderUri = :folderUri")
     suspend fun updateUnavailableStatusForFolder(folderUri: String, isUnavailable: Boolean)
 
+    @Query("SELECT * FROM books WHERE isUnavailable = 1")
+    fun getUnavailableBooks(): Flow<List<BookEntity>>
+
+    @Query("SELECT * FROM books WHERE isUnavailable = 1")
+    suspend fun getUnavailableBooksSync(): List<BookEntity>
+
+    @Query("SELECT * FROM books")
+    suspend fun getAllBooksSync(): List<BookEntity>
+
     @Delete
     suspend fun delete(book: BookEntity)
 

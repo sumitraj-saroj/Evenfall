@@ -72,6 +72,7 @@ import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.EditBookDetailsDialog
 import com.evenfall.app.ui.components.SparkleDecorations
+import androidx.compose.material.icons.filled.Warning
 import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
@@ -82,6 +83,7 @@ fun HomeScreen(
     onOpenBook: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAddFolder: () -> Unit,
+    onOpenFixLibrary: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     hasMiniPlayer: Boolean = false
 ) {
@@ -89,6 +91,7 @@ fun HomeScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var bookToEdit by remember { mutableStateOf<BookEntity?>(null) }
     var bookToResetPositionPrompt by remember { mutableStateOf<BookEntity?>(null) }
+    var bookToExplainUnavailable by remember { mutableStateOf<BookEntity?>(null) }
 
     Box(
         modifier = Modifier
@@ -193,12 +196,63 @@ fun HomeScreen(
                     }
                 }
 
+                // Lost-Folder Warning Banner
+                if (uiState.hasUnavailableBooks) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.lost_folder_banner_title),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = stringResource(R.string.lost_folder_banner_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = onOpenFixLibrary,
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.fix_library))
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Hero Card: Continue Listening (matching Image 1)
                 uiState.heroBook?.let { hero ->
                     item {
                         ContinueListeningHeroCard(
                             book = hero,
-                            onClick = { onOpenBook(hero.id) },
+                            onClick = {
+                                if (hero.isUnavailable) bookToExplainUnavailable = hero
+                                else onOpenBook(hero.id)
+                            },
                             onEditDetails = { bookToEdit = hero },
                             onMarkFinished = { viewModel.markAsFinished(hero.id) }
                         )
@@ -293,7 +347,10 @@ fun HomeScreen(
                                 uiState.currentBooks.forEachIndexed { index, book ->
                                     CurrentBookRow(
                                         book = book,
-                                        onClick = { onOpenBook(book.id) },
+                                        onClick = {
+                                            if (book.isUnavailable) bookToExplainUnavailable = book
+                                            else onOpenBook(book.id)
+                                        },
                                         onEditDetails = { bookToEdit = book },
                                         onMarkFinished = { viewModel.markAsFinished(book.id) },
                                         onMarkUnfinished = { bookToResetPositionPrompt = book }
@@ -321,7 +378,10 @@ fun HomeScreen(
                     items(uiState.notStartedBooks) { book ->
                         CurrentBookRow(
                             book = book,
-                            onClick = { onOpenBook(book.id) },
+                            onClick = {
+                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                else onOpenBook(book.id)
+                            },
                             onEditDetails = { bookToEdit = book },
                             onMarkFinished = { viewModel.markAsFinished(book.id) },
                             onMarkUnfinished = { bookToResetPositionPrompt = book }
@@ -343,7 +403,10 @@ fun HomeScreen(
                     items(uiState.finishedBooks) { book ->
                         CurrentBookRow(
                             book = book,
-                            onClick = { onOpenBook(book.id) },
+                            onClick = {
+                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                else onOpenBook(book.id)
+                            },
                             onEditDetails = { bookToEdit = book },
                             onMarkFinished = { viewModel.markAsFinished(book.id) },
                             onMarkUnfinished = { bookToResetPositionPrompt = book }
@@ -440,6 +503,36 @@ fun HomeScreen(
                         modifier = Modifier.height(48.dp)
                     ) {
                         Text(stringResource(R.string.keep_position))
+                    }
+                }
+            )
+        }
+
+        if (bookToExplainUnavailable != null) {
+            AlertDialog(
+                onDismissRequest = { bookToExplainUnavailable = null },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text(stringResource(R.string.folder_unavailable_title)) },
+                text = {
+                    Text(stringResource(R.string.folder_unavailable_explanation, bookToExplainUnavailable!!.displayTitle))
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            bookToExplainUnavailable = null
+                            onOpenFixLibrary()
+                        },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.relink_folder))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { bookToExplainUnavailable = null },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             )

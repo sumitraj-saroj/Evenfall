@@ -33,4 +33,19 @@
     <string name="auto_mark_finished_desc">Mark books as finished when reaching 98% progress or end of the last chapter</string>
     <string name="cd_swipe_mark_finished">Swipe to mark as finished</string>
     <string name="cd_swipe_mark_not_started">Swipe to mark as not started</string>
+    <string name="lost_folder_banner_title">Library folder unreachable</string>
+    <string name="lost_folder_banner_desc">SD card removed or folder moved. Books stay preserved.</string>
+    <string name="fix_library">Fix library</string>
+    <string name="relink_folder">Re-link folder</string>
+    <string name="folder_unavailable_title">Folder unavailable</string>
+    <string name="folder_unavailable_explanation">The audio files for \"%1$s\" could not be found. The folder may have been moved, renamed, or is on an unmounted SD card. Would you like to re-link this folder?</string>
+    <string name="matched_books_section">Matched (%1$d)</string>
+    <string name="ambiguous_books_section">Needs review (%1$d)</string>
+    <string name="unmatched_books_section">Unmatched (%1$d)</string>
+    <string name="confirm_relink">Apply re-link</string>
+    <string name="select_new_folder">Select new folder</string>
+    <string name="fix_library_title">Fix library</string>
+    <string name="fix_library_subtitle">Re-link missing or moved audiobook folders while keeping 100% of your progress, bookmarks, and custom details.</string>
+    <string name="relink_success">Successfully re-linked %1$d books</string>
+    <string name="skip_book">Skip this book</string>
 </resources>
