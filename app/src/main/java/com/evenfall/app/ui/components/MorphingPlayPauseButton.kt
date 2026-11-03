@@ -38,9 +38,10 @@ fun MorphingPlayPauseButton(
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer
 ) {
+    val reducedMotion = com.evenfall.app.ui.util.rememberReducedMotion()
     val morphProgress by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
-        animationSpec = spring(
+        animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
@@ -73,7 +74,11 @@ fun MorphingPlayPauseButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Crossfade(targetState = isPlaying, label = "iconCrossfade") { playing ->
+        Crossfade(
+            targetState = isPlaying,
+            animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(),
+            label = "iconCrossfade"
+        ) { playing ->
             if (playing) {
                 Icon(
                     imageVector = Icons.Default.Pause,

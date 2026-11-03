@@ -26,6 +26,14 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -48,11 +56,14 @@ fun WavyProgressLine(
     strokeWidth: Dp = 4.dp,
     waveAmplitude: Dp = 5.dp,
     waveLength: Dp = 24.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    accessibilityDescription: String? = null,
+    customAccessibilityActions: List<CustomAccessibilityAction> = emptyList()
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val reducedMotion = com.evenfall.app.ui.util.rememberReducedMotion()
     val infiniteTransition = rememberInfiniteTransition(label = "waveAnimation")
-    val phase by infiniteTransition.animateFloat(
+    val animatedPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
@@ -61,11 +72,28 @@ fun WavyProgressLine(
         ),
         label = "phase"
     )
+    val phase = if (reducedMotion) 0f else animatedPhase
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(32.dp)
+            .semantics(mergeDescendants = true) {
+                if (accessibilityDescription != null) {
+                    contentDescription = accessibilityDescription
+                    stateDescription = accessibilityDescription
+                }
+                progressBarRangeInfo = ProgressBarRangeInfo(current = progress.coerceIn(0f, 1f), range = 0f..1f)
+                if (onSeek != null) {
+                    setProgress { targetValue ->
+                        onSeek(targetValue.coerceIn(0f, 1f))
+                        true
+                    }
+                }
+                if (customAccessibilityActions.isNotEmpty()) {
+                    customActions = customAccessibilityActions
+                }
+            }
             .then(
                 if (onSeek != null) {
                     Modifier.pointerInput(isRtl) {
@@ -108,9 +136,9 @@ fun WavyProgressLine(
                 )
             }
 
-            // 2. Draw Active / Played Line (wavy if playing, flat if paused)
+            // 2. Draw Active / Played Line (wavy if playing and motion allowed, flat if paused/reduced motion)
             if (splitX > 0f) {
-                if (isPlaying && ampPx > 0f) {
+                if (isPlaying && !reducedMotion && ampPx > 0f) {
                     val wavePath = Path()
                     wavePath.moveTo(0f, centerY)
 

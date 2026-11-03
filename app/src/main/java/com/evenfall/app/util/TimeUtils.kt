@@ -55,6 +55,28 @@ object TimeUtils {
     }
 
     /**
+     * Formats duration for accessibility / TalkBack announcements (e.g. "14 minutes 20 seconds" or "42 minutes").
+     */
+    fun formatAccessibleDuration(millis: Long): String {
+        val totalSeconds = (millis.coerceAtLeast(0) / 1000).toInt()
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+
+        val parts = mutableListOf<String>()
+        if (hours > 0) {
+            parts.add(if (hours == 1) "1 hour" else "$hours hours")
+        }
+        if (minutes > 0) {
+            parts.add(if (minutes == 1) "1 minute" else "$minutes minutes")
+        }
+        if (seconds > 0 || parts.isEmpty()) {
+            parts.add(if (seconds == 1) "1 second" else "$seconds seconds")
+        }
+        return parts.joinToString(" ")
+    }
+
+    /**
      * Formats relative date like "Sep 12", "Thu", "Yesterday", "Today".
      */
     fun formatRelativeDate(timestamp: Long): String {

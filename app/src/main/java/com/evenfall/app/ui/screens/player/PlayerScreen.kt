@@ -1515,13 +1515,37 @@ private fun PlayerContent(
 
     // 5. Seek Slider (wavy while playing, flat when paused)
     Column(modifier = Modifier.fillMaxWidth()) {
+        val accessibilityDescription = "Chapter ${currentChapterIdx + 1} of $totalChapters, ${TimeUtils.formatAccessibleDuration(state.chapterPositionMs)} of ${TimeUtils.formatAccessibleDuration(state.chapterDurationMs)}"
+        val playerCustomActions = remember(onSkipBackward, onSkipForward, onBookmarksClick, onSleepClick) {
+            listOf(
+                androidx.compose.ui.semantics.CustomAccessibilityAction(label = "Skip backward") {
+                    onSkipBackward()
+                    true
+                },
+                androidx.compose.ui.semantics.CustomAccessibilityAction(label = "Skip forward") {
+                    onSkipForward()
+                    true
+                },
+                androidx.compose.ui.semantics.CustomAccessibilityAction(label = "Bookmark") {
+                    onBookmarksClick()
+                    true
+                },
+                androidx.compose.ui.semantics.CustomAccessibilityAction(label = "Sleep timer") {
+                    onSleepClick()
+                    true
+                }
+            )
+        }
+
         WavyProgressLine(
             progress = state.chapterProgressFraction,
             onSeek = onSeekToFraction,
             isPlaying = state.isPlaying,
             activeColor = bookColors.activeSliderColor,
             inactiveColor = bookColors.inactiveSliderColor,
-            thumbColor = bookColors.activeSliderColor
+            thumbColor = bookColors.activeSliderColor,
+            accessibilityDescription = accessibilityDescription,
+            customAccessibilityActions = playerCustomActions
         )
 
         // Elapsed time and remaining time on sides

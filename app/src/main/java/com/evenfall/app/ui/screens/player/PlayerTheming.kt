@@ -21,9 +21,59 @@ data class PlayerBookColors(
 )
 
 object PlayerThemeExtractor {
+
+    fun calculateLuminance(color: Color): Double {
+        fun channel(c: Float): Double {
+            val v = c.toDouble()
+            return if (v <= 0.03928) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(color.red) + 0.7152 * channel(color.green) + 0.0722 * channel(color.blue)
+    }
+
+    fun calculateContrastRatio(fg: Color, bg: Color): Double {
+        val l1 = calculateLuminance(fg)
+        val l2 = calculateLuminance(bg)
+        val lighter = maxOf(l1, l2)
+        val darker = minOf(l1, l2)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    fun ensureContrast(
+        fg: Color,
+        bg: Color,
+        minRatio: Double = 4.5,
+        fallbackLight: Color = Color(0xFFF8FAFC),
+        fallbackDark: Color = Color(0xFF0F172A)
+    ): Color {
+        val ratio = calculateContrastRatio(fg, bg)
+        if (ratio >= minRatio) return fg
+        val bgLum = calculateLuminance(bg)
+        val candidate = if (bgLum < 0.5) fallbackLight else fallbackDark
+        return if (calculateContrastRatio(candidate, bg) >= minRatio) candidate else fg
+    }
+
+    fun applyContrastGuard(colors: PlayerBookColors, isDark: Boolean): PlayerBookColors {
+        val dominantBg = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+        val guardedOnBg = ensureContrast(colors.onBackground, dominantBg, minRatio = 4.5)
+        val guardedOnBgMuted = ensureContrast(colors.onBackgroundMuted, dominantBg, minRatio = 3.0)
+        val guardedPlayContent = ensureContrast(colors.playButtonContent, colors.playButtonContainer, minRatio = 4.5)
+        val guardedSkipContent = ensureContrast(colors.skipButtonContent, colors.skipButtonBackground, minRatio = 4.5)
+        val guardedBottomContent = ensureContrast(colors.bottomToolbarContent, colors.bottomToolbarContainer, minRatio = 4.5)
+        val guardedUndoContent = ensureContrast(colors.undoChipContent, colors.undoChipBackground, minRatio = 4.5)
+
+        return colors.copy(
+            onBackground = guardedOnBg,
+            onBackgroundMuted = guardedOnBgMuted,
+            playButtonContent = guardedPlayContent,
+            skipButtonContent = guardedSkipContent,
+            bottomToolbarContent = guardedBottomContent,
+            undoChipContent = guardedUndoContent
+        )
+    }
+
     fun getColorsForBook(title: String, isDark: Boolean): PlayerBookColors {
         val clean = title.lowercase()
-        return when {
+        val rawColors = when {
             clean.contains("horizon") -> {
                 // Beyond the Horizon: Warm Golden Amber Palette (Screenshot 2)
                 PlayerBookColors(
@@ -147,5 +197,6 @@ object PlayerThemeExtractor {
                 }
             }
         }
+        return applyContrastGuard(rawColors, isDark)
     }
 }
