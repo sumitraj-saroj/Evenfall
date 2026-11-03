@@ -190,6 +190,15 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
    - **Dynamic Launcher Shortcuts**: Native `ShortcutManager` shortcuts for "Continue <book name>" (dynamically updated as the last-played book changes) and "Library", capped at system limits.
    - **Wear OS Media3 Integration Architecture**: Architectural blueprint in `docs/wear-os.md` specifying zero-network `MediaController` session integration, ambient mode battery savings, and circular UI layouts.
 
+20. **Final Polish, Accessibility & Adaptive Architecture (v1.7.0)**:
+   - **Subtle Haptic Feedback**: Tactile feedback (`EvenfallHaptics`) for play/pause toggles, bookmark saving, chapter boundary snapping during wavy line seeks, sleep timer selections, and skip long-press actions. Configurable via "Haptic feedback" setting and honors system touch feedback.
+   - **Localization & RTL Usability**: Comprehensive string audit ensuring all strings reside in `strings.xml` and `plurals.xml` with zero hardcoded user-facing strings (verified by unit test). Per-app language support via `locales_config.xml`. Seamless RTL layout mirroring with preserved media transport direction and RTL-aware wavy seeking.
+   - **Tablet & Foldable Two-Pane Layouts**: Responsive window size class adaptation ($\ge 600\text{dp}$): two-pane layout with start `NavigationRail`, central library pane, and right-side player/detail panel (`HomeRightPane`). Landscape player with cover on left/start and controls on right/end. Manifest `configChanges` handling orientation and fold posture shifts without activity recreation or playback interruption.
+   - **Illustrated Empty & Error States**: On-brand vector illustrations (`ic_empty_library`, `ic_empty_permission`, `ic_empty_search`, `ic_empty_bookmarks`, `ic_empty_history`, `ic_empty_corrupt`) with single clear actions for empty library, lost folder permissions, empty search results, empty bookmarks, and skipped/corrupt scan issues.
+   - **Resilient Mid-Book Playback Error Handling**: Gracefully handles missing files, unmounted SD cards, or renamed audio tracks mid-book without crashing; automatically pauses, persists current playback position safely to Room, and displays a non-fatal retry / file locator dialog.
+   - **Tasteful First-Run Hints**: At most 3 dismissible hints shown once ("Long-press skip to change the amount", "Tap Save this moment to bookmark", "Swipe the mini player up to open it") stored in DataStore, plus a "Reset hints and tips" action in Settings.
+   - **Accessibility & Reduced Motion**: TalkBack slider announcements with full chapter context ("Chapter 3 of 12, 14 minutes 20 seconds of 42 minutes") and custom accessibility actions for skip backward, skip forward, bookmark, and sleep timer. Contrast guard guaranteeing WCAG AA ($\ge 4.5:1$ body, $\ge 3:1$ large text) against dynamic book palettes. Reduced motion support (`ANIMATOR_DURATION_SCALE == 0`) disabling wave oscillations, bouncy morphs, and sparkles in favor of static, crisp equivalents.
+
 ---
 
 ## 🔒 Privacy & Offline Architecture
