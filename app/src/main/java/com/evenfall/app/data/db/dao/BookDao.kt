@@ -35,6 +35,9 @@ interface BookDao {
     @Query("SELECT * FROM books ORDER BY lastPlayedTimestamp DESC LIMIT 1")
     fun getMostRecentlyPlayedBook(): Flow<BookEntity?>
 
+    @Query("SELECT * FROM books ORDER BY lastPlayedTimestamp DESC LIMIT 1")
+    suspend fun getMostRecentlyPlayedBookSync(): BookEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(book: BookEntity): Long
 

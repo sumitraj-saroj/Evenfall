@@ -37,6 +37,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
+import com.evenfall.app.data.db.dao.ListeningSessionDao
+import com.evenfall.app.data.db.entity.ListeningSessionEntity
+import com.evenfall.app.service.EvenfallTileService
+import com.evenfall.app.shortcuts.EvenfallShortcutManager
 import javax.inject.Singleton
 
 @OptIn(UnstableApi::class)
@@ -46,6 +50,7 @@ class PlaybackManager @Inject constructor(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val historyDao: HistoryDao,
+    private val listeningSessionDao: ListeningSessionDao,
     private val preferencesManager: PreferencesManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -54,6 +59,7 @@ class PlaybackManager @Inject constructor(
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     val monoAudioProcessor = MonoDownmixAudioProcessor()
+    val sessionTracker = ListeningSessionTracker()
 
     private val renderersFactory = object : DefaultRenderersFactory(context) {
         override fun buildAudioSink(
@@ -105,6 +111,28 @@ class PlaybackManager @Inject constructor(
         observeAutoMarkPreference()
         observeAutoPlayNextPreference()
         observeGlobalSettings()
+        observeStatsPreference()
+    }
+
+    private fun observeStatsPreference() {
+        scope.launch {
+            preferencesManager.statsEnabled.collect { enabled ->
+                sessionTracker.setStatsEnabled(enabled)
+            }
+        }
+    }
+
+    private fun saveListeningSession(record: SessionRecord) {
+        scope.launch(Dispatchers.IO) {
+            listeningSessionDao.insert(
+                ListeningSessionEntity(
+                    bookId = record.bookId,
+                    timestamp = record.timestamp,
+                    listenedDurationMs = record.listenedDurationMs,
+                    contentDurationMs = record.contentDurationMs
+                )
+            )
+        }
     }
 
     private fun observeAutoMarkPreference() {
@@ -205,6 +233,10 @@ class PlaybackManager @Inject constructor(
         })
     }
 
+    fun loadBook(book: BookEntity, autoPlay: Boolean = false) {
+        loadBook(book.id, autoPlay)
+    }
+
     fun loadBook(bookId: Long, autoPlay: Boolean = false) {
         scope.launch {
             val book = bookDao.getBookByIdSync(bookId) ?: return@launch
@@ -248,6 +280,8 @@ class PlaybackManager @Inject constructor(
             }
 
             applyEffectiveSettingsForBook(book)
+            EvenfallShortcutManager.updateShortcuts(context, book)
+            EvenfallTileService.requestTileUpdate(context)
 
             if (autoPlay) {
                 play()
@@ -305,6 +339,8 @@ class PlaybackManager @Inject constructor(
             }
 
             applyEffectiveSettingsForBook(book)
+            EvenfallShortcutManager.updateShortcuts(context, book)
+            EvenfallTileService.requestTileUpdate(context)
             saveCurrentPosition()
 
             if (autoPlay) {
@@ -380,6 +416,16 @@ class PlaybackManager @Inject constructor(
 
             exoPlayer.play()
             _playbackState.value = _playbackState.value.copy(isPlaying = true)
+
+            EvenfallTileService.requestTileUpdate(context)
+            EvenfallShortcutManager.updateShortcuts(context, book)
+
+            val sessionRecord = sessionTracker.onPlay(
+                nowMs = System.currentTimeMillis(),
+                bookId = book.id,
+                positionMs = _playbackState.value.chapterPositionMs
+            )
+            sessionRecord?.let { saveListeningSession(it) }
 
             historyDao.insert(
                 HistoryEntity(
@@ -465,6 +511,13 @@ class PlaybackManager @Inject constructor(
         exoPlayer.pause()
         _playbackState.value = _playbackState.value.copy(isPlaying = false)
         saveCurrentPosition()
+        EvenfallTileService.requestTileUpdate(context)
+
+        val sessionRecord = sessionTracker.onPause(
+            nowMs = System.currentTimeMillis(),
+            positionMs = state.chapterPositionMs
+        )
+        sessionRecord?.let { saveListeningSession(it) }
 
         scope.launch {
             historyDao.insert(
@@ -516,6 +569,11 @@ class PlaybackManager @Inject constructor(
             exoPlayer.seekTo(clampedPos)
         }
 
+        sessionTracker.onSeek(
+            nowMs = System.currentTimeMillis(),
+            newPositionMs = clampedPos
+        )
+
         val chapterStartMs = _playbackState.value.currentChapter?.startMs ?: 0L
         _playbackState.value = _playbackState.value.copy(
             chapterPositionMs = clampedPos,
@@ -561,6 +619,11 @@ class PlaybackManager @Inject constructor(
             chapterDurationMs = target.durationMs,
             totalPositionMs = target.startMs,
             undoSeekPositionMs = null
+        )
+
+        sessionTracker.onSeek(
+            nowMs = System.currentTimeMillis(),
+            newPositionMs = 0L
         )
 
         try {
@@ -1034,6 +1097,12 @@ class PlaybackManager @Inject constructor(
                     )
                     saveCurrentPosition()
 
+                    val sessionRecord = sessionTracker.onTick(
+                        nowMs = System.currentTimeMillis(),
+                        positionMs = currentPos
+                    )
+                    sessionRecord?.let { saveListeningSession(it) }
+
                     // Auto-mark finished when reaching >= 98%
                     val book = _playbackState.value.currentBook
                     if (book != null && !book.isFinished) {
@@ -1079,6 +1148,8 @@ class PlaybackManager @Inject constructor(
         positionTickerJob?.cancel()
         sleepTimerJob?.cancel()
         shakeDetector.stop()
+        val finalRecord = sessionTracker.flush()
+        finalRecord?.let { saveListeningSession(it) }
         loudnessEnhancer?.release()
         equalizer?.release()
         exoPlayer.release()

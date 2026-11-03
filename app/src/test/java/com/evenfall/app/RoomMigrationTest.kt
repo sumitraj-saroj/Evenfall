@@ -120,4 +120,30 @@ class RoomMigrationTest {
         assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `loudnessNormalizationOverride` INTEGER DEFAULT NULL"))
         assertEquals(8, executedSql.size)
     }
+
+    @Test
+    fun testMigration5To6CreatesListeningSessionsTable() {
+        val executedSql = mutableListOf<String>()
+        val db = Proxy.newProxyInstance(
+            SupportSQLiteDatabase::class.java.classLoader,
+            arrayOf(SupportSQLiteDatabase::class.java)
+        ) { _, method, args ->
+            if (method.name == "execSQL" && args != null && args.isNotEmpty()) {
+                executedSql.add(args[0] as String)
+            }
+            null
+        } as SupportSQLiteDatabase
+
+        EvenfallDatabase.MIGRATION_5_6.migrate(db)
+
+        assertEquals(5, EvenfallDatabase.MIGRATION_5_6.startVersion)
+        assertEquals(6, EvenfallDatabase.MIGRATION_5_6.endVersion)
+
+        assertTrue(executedSql.any { it.contains("CREATE TABLE IF NOT EXISTS `listening_sessions`") })
+        assertTrue(executedSql.any { it.contains("`listenedDurationMs` INTEGER NOT NULL") })
+        assertTrue(executedSql.any { it.contains("`contentDurationMs` INTEGER NOT NULL") })
+        assertTrue(executedSql.any { it.contains("CREATE INDEX IF NOT EXISTS `index_listening_sessions_bookId`") })
+        assertTrue(executedSql.any { it.contains("CREATE INDEX IF NOT EXISTS `index_listening_sessions_timestamp`") })
+        assertEquals(3, executedSql.size)
+    }
 }

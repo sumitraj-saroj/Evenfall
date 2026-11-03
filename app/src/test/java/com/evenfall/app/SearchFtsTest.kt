@@ -101,6 +101,7 @@ class SearchFtsTest {
         override fun getFinishedBooks(): Flow<List<BookEntity>> = MutableStateFlow(emptyList())
         override fun getUnavailableBooks(): Flow<List<BookEntity>> = MutableStateFlow(emptyList())
         override fun getMostRecentlyPlayedBook(): Flow<BookEntity?> = MutableStateFlow(null)
+        override suspend fun getMostRecentlyPlayedBookSync(): BookEntity? = null
         override suspend fun updateUnavailableStatus(id: Long, isUnavailable: Boolean) {}
         override suspend fun updateUnavailableStatusForFolder(folderUri: String, isUnavailable: Boolean) {}
         override suspend fun getUnavailableBooksSync(): List<BookEntity> = booksMap.values.filter { it.isUnavailable }

@@ -8,6 +8,7 @@ import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.dao.CollectionDao
 import com.evenfall.app.data.db.dao.HistoryDao
+import com.evenfall.app.data.db.dao.ListeningSessionDao
 import com.evenfall.app.data.db.dao.ScanIssueDao
 import com.evenfall.app.data.db.dao.SearchDao
 import dagger.Module
@@ -33,7 +34,8 @@ object DatabaseModule {
                 EvenfallDatabase.MIGRATION_1_2,
                 EvenfallDatabase.MIGRATION_2_3,
                 EvenfallDatabase.MIGRATION_3_4,
-                EvenfallDatabase.MIGRATION_4_5
+                EvenfallDatabase.MIGRATION_4_5,
+                EvenfallDatabase.MIGRATION_5_6
             )
             .build()
     }
@@ -58,4 +60,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSearchDao(database: EvenfallDatabase): SearchDao = database.searchDao()
+
+    @Provides
+    fun provideListeningSessionDao(database: EvenfallDatabase): ListeningSessionDao = database.listeningSessionDao()
 }
