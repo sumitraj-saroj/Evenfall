@@ -22,6 +22,8 @@ object TimeUtils {
         }
     }
 
+    fun formatDuration(millis: Long): String = formatDurationWords(millis)
+
     /**
      * Formats remaining time to "4:03:15 left" or "24:10 left".
      */

@@ -3,9 +3,11 @@ package com.evenfall.app.ui.screens.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,19 +20,27 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,11 +53,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,18 +71,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.R
+import com.evenfall.app.data.datastore.LibrarySortBy
+import com.evenfall.app.data.datastore.LibraryTab
+import com.evenfall.app.data.datastore.LibraryViewMode
 import com.evenfall.app.data.db.entity.BookEntity
+import com.evenfall.app.ui.components.AddToCollectionDialog
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.EditBookDetailsDialog
+import com.evenfall.app.ui.components.SortFilterBottomSheet
 import com.evenfall.app.ui.components.SparkleDecorations
-import androidx.compose.material.icons.filled.Warning
 import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
@@ -88,8 +101,10 @@ fun HomeScreen(
     hasMiniPlayer: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showSortMenu by remember { mutableStateOf(false) }
+    var showSortFilterSheet by remember { mutableStateOf(false) }
     var bookToEdit by remember { mutableStateOf<BookEntity?>(null) }
+    var bookForCollection by remember { mutableStateOf<BookEntity?>(null) }
+    var bookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var bookToResetPositionPrompt by remember { mutableStateOf<BookEntity?>(null) }
     var bookToExplainUnavailable by remember { mutableStateOf<BookEntity?>(null) }
 
@@ -126,7 +141,7 @@ fun HomeScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
+                                contentDescription = stringResource(R.string.search_hint),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -135,9 +150,11 @@ fun HomeScreen(
                                 onValueChange = viewModel::onSearchQueryChanged,
                                 placeholder = {
                                     Text(
-                                        "Search your library",
+                                        stringResource(R.string.search_hint),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                        fontSize = 15.sp
+                                        fontSize = 15.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 },
                                 singleLine = true,
@@ -155,208 +172,186 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.size(48.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.Settings,
-                            contentDescription = "Settings",
+                            contentDescription = stringResource(R.string.cd_settings),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
             }
         ) { paddingValues ->
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 20.dp)
-                    .navigationBarsPadding(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    bottom = if (hasMiniPlayer) 88.dp else 24.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                    .navigationBarsPadding()
             ) {
                 // Greeting Header (in Serif font matching Image 1)
-                item {
-                    Column(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
-                        Text(
-                            text = uiState.greeting,
-                            fontFamily = SerifFont,
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        val inProgressCount = (if (uiState.heroBook != null) 1 else 0) + uiState.currentBooks.size
-                        Text(
-                            text = "$inProgressCount books in progress",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Column(modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+                    Text(
+                        text = uiState.greeting,
+                        fontFamily = SerifFont,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    val inProgressCount = (if (uiState.heroBook != null) 1 else 0) + uiState.currentBooks.size
+                    Text(
+                        text = "$inProgressCount books in progress",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
-                // Lost-Folder Warning Banner
-                if (uiState.hasUnavailableBooks) {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(R.string.lost_folder_banner_title),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = stringResource(R.string.lost_folder_banner_desc),
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = onOpenFixLibrary,
-                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    )
-                                ) {
-                                    Text(stringResource(R.string.fix_library))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Hero Card: Continue Listening (matching Image 1)
-                uiState.heroBook?.let { hero ->
-                    item {
-                        ContinueListeningHeroCard(
-                            book = hero,
-                            onClick = {
-                                if (hero.isUnavailable) bookToExplainUnavailable = hero
-                                else onOpenBook(hero.id)
-                            },
-                            onEditDetails = { bookToEdit = hero },
-                            onMarkFinished = { viewModel.markAsFinished(hero.id) }
+                // Segmented Tabs: Books / Series / Authors
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val tabs = listOf(
+                            LibraryTab.BOOKS to stringResource(R.string.tab_books),
+                            LibraryTab.SERIES to stringResource(R.string.tab_series),
+                            LibraryTab.AUTHORS to stringResource(R.string.tab_authors)
                         )
-                    }
-                }
-
-                // "Current" Section with Badge Count (matching Image 1)
-                if (uiState.currentBooks.isNotEmpty()) {
-                    item {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
-                        ) {
-                            Text(
-                                text = "Current",
-                                fontFamily = SerifFont,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        for ((tab, label) in tabs) {
+                            val isSelected = uiState.selectedTab == tab
                             Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                modifier = Modifier.size(24.dp)
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                                    .clickable { viewModel.setLibraryTab(tab) }
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = "${uiState.currentBooks.size}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // Sort dropdown
-                            Box {
-                                IconButton(onClick = { showSortMenu = true }) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                        contentDescription = "Sort library",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showSortMenu,
-                                    onDismissRequest = { showSortMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Recently played") },
-                                        onClick = {
-                                            viewModel.onSortOptionChanged(SortOption.RECENTLY_PLAYED)
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Title") },
-                                        onClick = {
-                                            viewModel.onSortOptionChanged(SortOption.TITLE)
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Author") },
-                                        onClick = {
-                                            viewModel.onSortOptionChanged(SortOption.AUTHOR)
-                                            showSortMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Duration") },
-                                        onClick = {
-                                            viewModel.onSortOptionChanged(SortOption.DURATION)
-                                            showSortMenu = false
-                                        }
+                                        text = label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                         }
                     }
+                }
 
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            modifier = Modifier.fillMaxWidth()
+                // Active Filters and Toolbar row (only for Books tab)
+                if (uiState.selectedTab == LibraryTab.BOOKS) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Scrollable active filter chips
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                uiState.currentBooks.forEachIndexed { index, book ->
-                                    CurrentBookRow(
-                                        book = book,
-                                        onClick = {
-                                            if (book.isUnavailable) bookToExplainUnavailable = book
-                                            else onOpenBook(book.id)
-                                        },
-                                        onEditDetails = { bookToEdit = book },
-                                        onMarkFinished = { viewModel.markAsFinished(book.id) },
-                                        onMarkUnfinished = { bookToResetPositionPrompt = book }
+                            if (uiState.filterState.hasActiveFilters) {
+                                for (st in uiState.filterState.statuses) {
+                                    val label = when (st) {
+                                        "IN_PROGRESS" -> stringResource(R.string.status_in_progress)
+                                        "NOT_STARTED" -> stringResource(R.string.status_not_started)
+                                        else -> stringResource(R.string.status_finished)
+                                    }
+                                    AssistChip(
+                                        onClick = { viewModel.setFilterStatus(st, false) },
+                                        label = { Text(label, fontSize = 11.sp) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                        )
                                     )
-                                    if (index < uiState.currentBooks.size - 1) {
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                }
+
+                                uiState.filterState.collectionId?.let { colId ->
+                                    val colName = uiState.allCollections.firstOrNull { it.id == colId }?.name ?: "Collection"
+                                    AssistChip(
+                                        onClick = { viewModel.setFilterCollection(null) },
+                                        label = { Text(colName, fontSize = 11.sp) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                                        )
+                                    )
+                                }
+
+                                if (uiState.filterState.seriesOnly) {
+                                    AssistChip(
+                                        onClick = { viewModel.setFilterSeriesOnly(false) },
+                                        label = { Text(stringResource(R.string.filter_series_only), fontSize = 11.sp) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                    )
+                                }
+
+                                if (uiState.filterState.unavailableOnly) {
+                                    AssistChip(
+                                        onClick = { viewModel.setFilterUnavailableOnly(false) },
+                                        label = { Text(stringResource(R.string.filter_unavailable), fontSize = 11.sp) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = viewModel::clearFilters,
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text(stringResource(R.string.reset_filters), fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Grid/List toggle & Sort/Filter Sheet Button
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = viewModel::toggleViewMode,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (uiState.viewMode == LibraryViewMode.GRID) Icons.AutoMirrored.Outlined.List else Icons.Default.GridView,
+                                    contentDescription = if (uiState.viewMode == LibraryViewMode.GRID) stringResource(R.string.view_mode_list) else stringResource(R.string.view_mode_grid),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { showSortFilterSheet = true },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box {
+                                    Icon(
+                                        imageVector = Icons.Default.Tune,
+                                        contentDescription = stringResource(R.string.sort_and_filter),
+                                        tint = if (uiState.filterState.hasActiveFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (uiState.filterState.hasActiveFilters) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .align(Alignment.TopEnd)
+                                        ) {}
                                     }
                                 }
                             }
@@ -364,95 +359,313 @@ fun HomeScreen(
                     }
                 }
 
-                // "Not started" Section
-                if (uiState.notStartedBooks.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Not started",
-                            fontFamily = SerifFont,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 10.dp)
-                        )
-                    }
-                    items(uiState.notStartedBooks) { book ->
-                        CurrentBookRow(
-                            book = book,
-                            onClick = {
-                                if (book.isUnavailable) bookToExplainUnavailable = book
-                                else onOpenBook(book.id)
-                            },
-                            onEditDetails = { bookToEdit = book },
-                            onMarkFinished = { viewModel.markAsFinished(book.id) },
-                            onMarkUnfinished = { bookToResetPositionPrompt = book }
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // "Finished" Section
-                if (uiState.finishedBooks.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Finished",
-                            fontFamily = SerifFont,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 10.dp)
-                        )
-                    }
-                    items(uiState.finishedBooks) { book ->
-                        CurrentBookRow(
-                            book = book,
-                            onClick = {
-                                if (book.isUnavailable) bookToExplainUnavailable = book
-                                else onOpenBook(book.id)
-                            },
-                            onEditDetails = { bookToEdit = book },
-                            onMarkFinished = { viewModel.markAsFinished(book.id) },
-                            onMarkUnfinished = { bookToResetPositionPrompt = book }
-                        )
-                    }
-                }
+                // Content Padding bottom for mini player
+                val bottomPadding = if (hasMiniPlayer) 88.dp else 24.dp
 
-                // Add Folder Banner
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenAddFolder)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.FolderOpen,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                // Tab Content Rendering
+                when (uiState.selectedTab) {
+                    LibraryTab.SERIES -> {
+                        SeriesViewContent(
+                            seriesGroups = uiState.seriesGroups,
+                            onOpenBook = { id -> onOpenBook(id) },
+                            onEditDetails = { b -> bookToEdit = b },
+                            onAddToCollection = { b ->
+                                viewModel.getCollectionsForBook(b.id) { ids ->
+                                    bookCollectionIds = ids
+                                    bookForCollection = b
+                                }
+                            },
+                            onMarkFinished = { b -> viewModel.markAsFinished(b.id) },
+                            onMarkUnfinished = { b -> bookToResetPositionPrompt = b },
+                            contentPadding = PaddingValues(bottom = bottomPadding)
+                        )
+                    }
+
+                    LibraryTab.AUTHORS -> {
+                        AuthorViewContent(
+                            authorGroups = uiState.authorGroups,
+                            onOpenBook = { id -> onOpenBook(id) },
+                            onEditDetails = { b -> bookToEdit = b },
+                            onAddToCollection = { b ->
+                                viewModel.getCollectionsForBook(b.id) { ids ->
+                                    bookCollectionIds = ids
+                                    bookForCollection = b
+                                }
+                            },
+                            onMarkFinished = { b -> viewModel.markAsFinished(b.id) },
+                            onMarkUnfinished = { b -> bookToResetPositionPrompt = b },
+                            contentPadding = PaddingValues(bottom = bottomPadding)
+                        )
+                    }
+
+                    LibraryTab.BOOKS -> {
+                        if (uiState.viewMode == LibraryViewMode.GRID) {
+                            BookCoverGridContent(
+                                books = uiState.filteredBooksList,
+                                onOpenBook = { id -> onOpenBook(id) },
+                                onEditDetails = { b -> bookToEdit = b },
+                                onAddToCollection = { b ->
+                                    viewModel.getCollectionsForBook(b.id) { ids ->
+                                        bookCollectionIds = ids
+                                        bookForCollection = b
+                                    }
+                                },
+                                onMarkFinished = { b -> viewModel.markAsFinished(b.id) },
+                                onMarkUnfinished = { b -> bookToResetPositionPrompt = b },
+                                contentPadding = PaddingValues(bottom = bottomPadding)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Add audiobooks folder",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Evenfall will scan and organize books automatically",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        } else {
+                            // Standard List View with Hero Card
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = bottomPadding),
+                                verticalArrangement = Arrangement.spacedBy(18.dp)
+                            ) {
+                                // Lost-Folder Warning Banner
+                                if (uiState.hasUnavailableBooks) {
+                                    item {
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(14.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = stringResource(R.string.lost_folder_banner_title),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.lost_folder_banner_desc),
+                                                        fontSize = 12.sp,
+                                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Button(
+                                                    onClick = onOpenFixLibrary,
+                                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.error,
+                                                        contentColor = MaterialTheme.colorScheme.onError
+                                                    )
+                                                ) {
+                                                    Text(stringResource(R.string.fix_library))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Hero Card: Continue Listening (when no search/filter active)
+                                if (!uiState.filterState.hasActiveFilters && uiState.searchQuery.isBlank()) {
+                                    uiState.heroBook?.let { hero ->
+                                        item {
+                                            ContinueListeningHeroCard(
+                                                book = hero,
+                                                onClick = {
+                                                    if (hero.isUnavailable) bookToExplainUnavailable = hero
+                                                    else onOpenBook(hero.id)
+                                                },
+                                                onEditDetails = { bookToEdit = hero },
+                                                onAddToCollection = {
+                                                    viewModel.getCollectionsForBook(hero.id) { ids ->
+                                                        bookCollectionIds = ids
+                                                        bookForCollection = hero
+                                                    }
+                                                },
+                                                onMarkFinished = { viewModel.markAsFinished(hero.id) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // If filtering or searching, show full filtered list cleanly
+                                if (uiState.filterState.hasActiveFilters || uiState.searchQuery.isNotBlank()) {
+                                    items(uiState.filteredBooksList, key = { it.id }) { book ->
+                                        CurrentBookRow(
+                                            book = book,
+                                            onClick = {
+                                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                                else onOpenBook(book.id)
+                                            },
+                                            onEditDetails = { bookToEdit = book },
+                                            onAddToCollection = {
+                                                viewModel.getCollectionsForBook(book.id) { ids ->
+                                                    bookCollectionIds = ids
+                                                    bookForCollection = book
+                                                }
+                                            },
+                                            onMarkFinished = { viewModel.markAsFinished(book.id) },
+                                            onMarkUnfinished = { bookToResetPositionPrompt = book }
+                                        )
+                                    }
+                                } else {
+                                    // "Current" Section with Badge Count (matching Image 1)
+                                    if (uiState.currentBooks.isNotEmpty()) {
+                                        item {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Current",
+                                                    fontFamily = SerifFont,
+                                                    fontSize = 20.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = "${uiState.currentBooks.size}",
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        item {
+                                            Surface(
+                                                shape = RoundedCornerShape(24.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Column(modifier = Modifier.padding(12.dp)) {
+                                                    uiState.currentBooks.forEachIndexed { index, book ->
+                                                        CurrentBookRow(
+                                                            book = book,
+                                                            onClick = {
+                                                                if (book.isUnavailable) bookToExplainUnavailable = book
+                                                                else onOpenBook(book.id)
+                                                            },
+                                                            onEditDetails = { bookToEdit = book },
+                                                            onAddToCollection = {
+                                                                viewModel.getCollectionsForBook(book.id) { ids ->
+                                                                    bookCollectionIds = ids
+                                                                    bookForCollection = book
+                                                                }
+                                                            },
+                                                            onMarkFinished = { viewModel.markAsFinished(book.id) },
+                                                            onMarkUnfinished = { bookToResetPositionPrompt = book }
+                                                        )
+                                                        if (index < uiState.currentBooks.size - 1) {
+                                                            Spacer(modifier = Modifier.height(12.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // "Not started" Section
+                                    if (uiState.notStartedBooks.isNotEmpty()) {
+                                        item {
+                                            Text(
+                                                text = "Not started",
+                                                fontFamily = SerifFont,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(top = 10.dp)
+                                            )
+                                        }
+                                        items(uiState.notStartedBooks, key = { it.id }) { book ->
+                                            CurrentBookRow(
+                                                book = book,
+                                                onClick = {
+                                                    if (book.isUnavailable) bookToExplainUnavailable = book
+                                                    else onOpenBook(book.id)
+                                                },
+                                                onEditDetails = { bookToEdit = book },
+                                                onAddToCollection = {
+                                                    viewModel.getCollectionsForBook(book.id) { ids ->
+                                                        bookCollectionIds = ids
+                                                        bookForCollection = book
+                                                    }
+                                                },
+                                                onMarkFinished = { viewModel.markAsFinished(book.id) },
+                                                onMarkUnfinished = { bookToResetPositionPrompt = book }
+                                            )
+                                        }
+                                    }
+
+                                    // "Finished" Section
+                                    if (uiState.finishedBooks.isNotEmpty()) {
+                                        item {
+                                            Text(
+                                                text = "Finished",
+                                                fontFamily = SerifFont,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(top = 10.dp)
+                                            )
+                                        }
+                                        items(uiState.finishedBooks, key = { it.id }) { book ->
+                                            CurrentBookRow(
+                                                book = book,
+                                                onClick = {
+                                                    if (book.isUnavailable) bookToExplainUnavailable = book
+                                                    else onOpenBook(book.id)
+                                                },
+                                                onEditDetails = { bookToEdit = book },
+                                                onAddToCollection = {
+                                                    viewModel.getCollectionsForBook(book.id) { ids ->
+                                                        bookCollectionIds = ids
+                                                        bookForCollection = book
+                                                    }
+                                                },
+                                                onMarkFinished = { viewModel.markAsFinished(book.id) },
+                                                onMarkUnfinished = { bookToResetPositionPrompt = book }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                item {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                             }
                         }
                     }
                 }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
             }
+        }
+
+        // Dialogs
+        if (showSortFilterSheet) {
+            SortFilterBottomSheet(
+                currentSortBy = uiState.sortBy,
+                currentSortAscending = uiState.sortAscending,
+                currentFilterState = uiState.filterState,
+                collections = uiState.allCollections,
+                onApplySortAndFilter = { sort, asc, filters ->
+                    viewModel.applySortAndFilters(sort, asc, filters)
+                },
+                onResetFilters = viewModel::clearFilters,
+                onDismiss = { showSortFilterSheet = false }
+            )
         }
 
         if (bookToEdit != null) {
@@ -475,6 +688,22 @@ fun HomeScreen(
                     viewModel.resetMetadataOverrides(bookToEdit!!.id)
                     bookToEdit = null
                 }
+            )
+        }
+
+        if (bookForCollection != null) {
+            AddToCollectionDialog(
+                book = bookForCollection!!,
+                allCollections = uiState.allCollections,
+                currentCollectionIds = bookCollectionIds,
+                onSaveCollections = { bookId, selectedIds ->
+                    viewModel.setCollectionsForBook(bookId, selectedIds)
+                    bookForCollection = null
+                },
+                onCreateCollection = { name ->
+                    viewModel.createCollection(name)
+                },
+                onDismiss = { bookForCollection = null }
             )
         }
 
@@ -511,11 +740,8 @@ fun HomeScreen(
         if (bookToExplainUnavailable != null) {
             AlertDialog(
                 onDismissRequest = { bookToExplainUnavailable = null },
-                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                title = { Text(stringResource(R.string.folder_unavailable_title)) },
-                text = {
-                    Text(stringResource(R.string.folder_unavailable_explanation, bookToExplainUnavailable!!.displayTitle))
-                },
+                title = { Text(stringResource(R.string.book_unavailable_title)) },
+                text = { Text(stringResource(R.string.book_unavailable_desc)) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -532,7 +758,44 @@ fun HomeScreen(
                         onClick = { bookToExplainUnavailable = null },
                         modifier = Modifier.height(48.dp)
                     ) {
-                        Text(stringResource(R.string.cancel))
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                }
+            )
+        }
+
+        // Up next in series prompt dialog
+        uiState.nextInSeriesPrompt?.let { nextBook ->
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissNextInSeriesPrompt() },
+                title = {
+                    Text(
+                        text = stringResource(R.string.up_next_title),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Text(stringResource(R.string.up_next_prompt, nextBook.displayTitle))
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.playNextInSeries(nextBook)
+                            onOpenBook(nextBook.id)
+                        },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.play_now))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { viewModel.dismissNextInSeriesPrompt() },
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.not_now))
                     }
                 }
             )
@@ -545,6 +808,7 @@ fun ContinueListeningHeroCard(
     book: BookEntity,
     onClick: () -> Unit,
     onEditDetails: () -> Unit = {},
+    onAddToCollection: () -> Unit = {},
     onMarkFinished: () -> Unit = {}
 ) {
     val progressFraction = if (book.totalDurationMs > 0) {
@@ -555,64 +819,39 @@ fun ContinueListeningHeroCard(
     var showHeroMenu by remember { mutableStateOf(false) }
 
     Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(28.dp),
-        shadowElevation = 0.dp
+            .clickable(onClick = onClick)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.horizontalGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF6B9CE8),
-                            Color(0xFFAAB8FC)
+                            Color(0xFFE8DCC4), // Warm parchment amber
+                            Color(0xFFD4C4A8)
                         )
                     )
                 )
-                .padding(20.dp)
+                .padding(22.dp)
         ) {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BookCoverArt(
-                        title = book.displayTitle,
-                        author = book.displayAuthor,
-                        coverPath = book.displayCoverUri,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.size(84.dp)
+                // Top row: "CONTINUE LISTENING" label + Overflow menu
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "CONTINUE LISTENING",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color(0xFF6B5E4A)
                     )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Continue listening",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E3A8A).copy(alpha = 0.85f)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = book.displayTitle,
-                            fontFamily = SerifFont,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = book.displayAuthor,
-                            fontFamily = SerifFont,
-                            fontSize = 13.sp,
-                            color = Color(0xFF1E293B).copy(alpha = 0.8f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
 
                     Box {
                         IconButton(
@@ -621,8 +860,8 @@ fun ContinueListeningHeroCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
-                                tint = Color(0xFF1E3A8A)
+                                contentDescription = "Hero options",
+                                tint = Color(0xFF6B5E4A)
                             )
                         }
                         DropdownMenu(
@@ -638,6 +877,14 @@ fun ContinueListeningHeroCard(
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.add_to_collection)) },
+                                leadingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null) },
+                                onClick = {
+                                    showHeroMenu = false
+                                    onAddToCollection()
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.mark_as_finished)) },
                                 leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
                                 onClick = {
@@ -646,6 +893,47 @@ fun ContinueListeningHeroCard(
                                 }
                             )
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Middle: Large Cover Art (~140dp) + Title + Author + Chapter
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BookCoverArt(
+                        title = book.displayTitle,
+                        author = book.displayAuthor,
+                        coverPath = book.displayCoverUri,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .size(110.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                    )
+
+                    Spacer(modifier = Modifier.width(18.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = book.displayTitle,
+                            fontFamily = SerifFont,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = book.displayAuthor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF475569)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Chapter ${book.currentChapterIndex + 1}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
                     }
                 }
 
@@ -679,29 +967,28 @@ fun ContinueListeningHeroCard(
                     Spacer(modifier = Modifier.weight(1f))
 
                     Text(
-                        text = TimeUtils.formatTimeLeft(timeLeftMs),
+                        text = "${TimeUtils.formatDuration(timeLeftMs)} left",
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E3A8A)
+                        color = Color(0xFF475569)
                     )
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Scalloped Cookie Play Button
-                    Box(
+                    Surface(
+                        shape = CookieShape(12),
+                        color = Color(0xFF0F4C81),
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(CookieShape(lobes = 12, depth = 0.16f))
-                            .background(Color(0xFF034E7B))
-                            .clickable(onClick = onClick),
-                        contentAlignment = Alignment.Center
+                            .size(48.dp)
+                            .clickable(onClick = onClick)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play ${book.displayTitle}",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play ${book.displayTitle}",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -715,6 +1002,7 @@ fun CurrentBookRow(
     book: BookEntity,
     onClick: () -> Unit,
     onEditDetails: () -> Unit = {},
+    onAddToCollection: () -> Unit = {},
     onMarkFinished: () -> Unit = {},
     onMarkUnfinished: () -> Unit = {},
     onReLink: (() -> Unit)? = null
@@ -787,33 +1075,56 @@ fun CurrentBookRow(
                 .clickable(onClick = onClick)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BookCoverArt(
-                    title = book.displayTitle,
-                    author = book.displayAuthor,
-                    coverPath = book.displayCoverUri,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.size(52.dp)
-                )
+                // Book Cover
+                Box {
+                    BookCoverArt(
+                        title = book.displayTitle,
+                        author = book.displayAuthor,
+                        coverPath = book.displayCoverUri,
+                        shape = CookieShape(lobes = 12, depth = 0.16f),
+                        modifier = Modifier.size(56.dp)
+                    )
+                    if (book.isUnavailable) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .align(Alignment.BottomEnd)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Unavailable",
+                                    tint = MaterialTheme.colorScheme.onError,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(14.dp))
 
+                // Title, Author, Progress
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = book.displayTitle,
                         fontFamily = SerifFont,
-                        fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (book.isUnavailable) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(1.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = book.displayAuthor,
-                        fontFamily = SerifFont,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -823,38 +1134,43 @@ fun CurrentBookRow(
 
                     if (book.isUnavailable) {
                         Text(
-                            text = stringResource(R.string.folder_unavailable),
+                            text = stringResource(R.string.book_unavailable_label),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium
                         )
-                    } else if (book.isFinished && book.finishedAt != null) {
+                    } else if (book.isFinished) {
+                        val finishedDateStr = book.finishedAt?.let { TimeUtils.formatDate(it) } ?: ""
                         Text(
-                            text = stringResource(R.string.finished_on, TimeUtils.formatDate(book.finishedAt)),
+                            text = if (finishedDateStr.isNotEmpty()) "Finished on $finishedDateStr" else "Finished",
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
                         )
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    } else if (book.currentPositionMs > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             LinearProgressIndicator(
                                 progress = { progressFraction },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .width(80.dp)
                                     .height(4.dp),
                                 color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                                 strokeCap = StrokeCap.Round
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = TimeUtils.formatTimeLeft(timeLeftMs),
+                                text = "${TimeUtils.formatDuration(timeLeftMs)} left",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    } else {
+                        Text(
+                            text = TimeUtils.formatDuration(book.totalDurationMs),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
@@ -879,6 +1195,14 @@ fun CurrentBookRow(
                             onClick = {
                                 showMenu = false
                                 onEditDetails()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.add_to_collection)) },
+                            leadingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                onAddToCollection()
                             }
                         )
                         if (!book.isFinished) {

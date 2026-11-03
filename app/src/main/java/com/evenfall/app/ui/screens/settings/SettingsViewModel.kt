@@ -56,7 +56,8 @@ data class SettingsUiState(
     val restoreSuccessMessage: String? = null,
     val restoreErrorMessage: String? = null,
     val compactPlayer: Boolean = true,
-    val autoMarkFinished: Boolean = true
+    val autoMarkFinished: Boolean = true,
+    val autoPlayNextInSeries: Boolean = false
 )
 
 private data class ListeningPrefs(
@@ -64,7 +65,8 @@ private data class ListeningPrefs(
     val autoRewind: Boolean,
     val shake: Boolean,
     val compact: Boolean,
-    val autoMarkFinished: Boolean
+    val autoMarkFinished: Boolean,
+    val autoPlayNextInSeries: Boolean
 )
 
 private data class BackupStateHolder(
@@ -111,13 +113,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private val listeningFlow = combine(
-        preferencesManager.skipAmountSeconds,
-        preferencesManager.autoRewindEnabled,
-        preferencesManager.shakeToExtendEnabled,
-        preferencesManager.compactPlayer,
-        preferencesManager.autoMarkFinished
-    ) { skip, autoRewind, shake, compact, autoMark ->
-        ListeningPrefs(skip, autoRewind, shake, compact, autoMark)
+        combine(preferencesManager.skipAmountSeconds, preferencesManager.autoRewindEnabled) { s, r -> s to r },
+        combine(preferencesManager.shakeToExtendEnabled, preferencesManager.compactPlayer) { sh, c -> sh to c },
+        combine(preferencesManager.autoMarkFinished, preferencesManager.autoPlayNextInSeries) { m, p -> m to p }
+    ) { (skip, autoRewind), (shake, compact), (autoMark, autoPlayNext) ->
+        ListeningPrefs(skip, autoRewind, shake, compact, autoMark, autoPlayNext)
     }
 
     private val backupStateFlow = combine(
@@ -163,6 +163,7 @@ class SettingsViewModel @Inject constructor(
             shakeToExtendEnabled = listening.shake,
             compactPlayer = listening.compact,
             autoMarkFinished = listening.autoMarkFinished,
+            autoPlayNextInSeries = listening.autoPlayNextInSeries,
             libraryFolders = folders,
             backupFolderUri = folder,
             lastBackupTimestamp = lastBackup,
@@ -213,6 +214,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoMarkFinished(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setAutoMarkFinished(enabled) }
+    }
+
+    fun setAutoPlayNextInSeries(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setAutoPlayNextInSeries(enabled) }
     }
 
     fun rescanLibrary() {

@@ -16,7 +16,9 @@ data class ParsedMetadata(
     val durationMs: Long,
     val coverPath: String?,
     val trackNumber: Int? = null,
-    val album: String? = null
+    val album: String? = null,
+    val seriesName: String? = null,
+    val seriesOrder: Float? = null
 )
 
 data class ParsedChapter(
@@ -65,22 +67,29 @@ class AudioMetadataParser @Inject constructor(
                 coverPath = coverFile.absolutePath
             }
 
+            val parsedSeries = SeriesTagParser.parse(context, uri, album, rawTitle)
+
             ParsedMetadata(
                 title = title,
                 author = author.trim(),
                 durationMs = durationMs,
                 coverPath = coverPath,
                 trackNumber = trackNumber,
-                album = album
+                album = album,
+                seriesName = parsedSeries?.name,
+                seriesOrder = parsedSeries?.order
             )
         } catch (_: Exception) {
             val resolvedFallback = TitleSanitizer.resolveTitle(null, null, folderName, fallbackTitle)
+            val parsedSeries = SeriesTagParser.parse(null, null, null, fallbackTitle)
             ParsedMetadata(
                 title = resolvedFallback,
                 author = "Unknown Author",
                 durationMs = 0L,
                 coverPath = null,
-                album = null
+                album = null,
+                seriesName = parsedSeries?.name,
+                seriesOrder = parsedSeries?.order
             )
         } finally {
             try {

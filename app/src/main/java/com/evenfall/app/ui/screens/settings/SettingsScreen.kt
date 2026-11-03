@@ -558,6 +558,27 @@ fun SettingsScreen(
                                 onCheckedChange = viewModel::setAutoMarkFinished
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Auto-play next in series toggle (default off)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.auto_play_next_in_series), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.auto_play_next_in_series_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.autoPlayNextInSeries,
+                                onCheckedChange = viewModel::setAutoPlayNextInSeries
+                            )
+                        }
                     }
                 }
 

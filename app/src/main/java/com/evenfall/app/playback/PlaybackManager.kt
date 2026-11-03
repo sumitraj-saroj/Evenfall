@@ -63,6 +63,10 @@ class PlaybackManager @Inject constructor(
     private var positionTickerJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var autoMarkFinishedEnabled: Boolean = true
+    private var autoPlayNextInSeriesEnabled: Boolean = false
+
+    private val _nextInSeriesPrompt = MutableStateFlow<BookEntity?>(null)
+    val nextInSeriesPrompt = _nextInSeriesPrompt.asStateFlow()
 
     private var lastPauseTimestamp: Long = 0L
     private var interruptionStartTimestamp: Long = 0L
@@ -76,6 +80,7 @@ class PlaybackManager @Inject constructor(
         startPositionTicker()
         restoreLastPlayedBookIfAvailable()
         observeAutoMarkPreference()
+        observeAutoPlayNextPreference()
     }
 
     private fun observeAutoMarkPreference() {
@@ -84,6 +89,24 @@ class PlaybackManager @Inject constructor(
                 autoMarkFinishedEnabled = enabled
             }
         }
+    }
+
+    private fun observeAutoPlayNextPreference() {
+        scope.launch {
+            preferencesManager.autoPlayNextInSeries.collect { enabled ->
+                autoPlayNextInSeriesEnabled = enabled
+            }
+        }
+    }
+
+    fun dismissNextInSeriesPrompt() {
+        _nextInSeriesPrompt.value = null
+    }
+
+    fun playNextInSeries(nextBook: BookEntity) {
+        _nextInSeriesPrompt.value = null
+        loadBook(nextBook.id)
+        play()
     }
 
     private fun restoreLastPlayedBookIfAvailable() {
@@ -343,9 +366,38 @@ class PlaybackManager @Inject constructor(
                         )
                         _playbackState.value = _playbackState.value.copy(currentBook = finishedBook)
                         bookDao.update(finishedBook)
+                        checkNextInSeries(book)
                     } else {
                         bookDao.update(book.copy(currentPositionMs = book.totalDurationMs))
                     }
+                }
+            }
+        }
+    }
+
+    private suspend fun checkNextInSeries(book: BookEntity) {
+        val seriesName = book.displaySeriesName
+        if (!seriesName.isNullOrBlank()) {
+            val allBooks = bookDao.getAllBooksSync()
+            val seriesBooks = allBooks
+                .filter { it.displaySeriesName.equals(seriesName, ignoreCase = true) }
+                .sortedWith(compareBy({ it.displaySeriesOrder ?: Float.MAX_VALUE }, { it.id }))
+
+            val currentOrder = book.displaySeriesOrder
+            val nextBook = if (currentOrder != null) {
+                seriesBooks.firstOrNull { (it.displaySeriesOrder ?: 0f) > currentOrder && it.id != book.id }
+            } else {
+                val idx = seriesBooks.indexOfFirst { it.id == book.id }
+                if (idx != -1 && idx < seriesBooks.size - 1) seriesBooks[idx + 1] else null
+            }
+
+            if (nextBook != null && !nextBook.isFinished) {
+                if (autoPlayNextInSeriesEnabled) {
+                    _nextInSeriesPrompt.value = nextBook
+                    loadBook(nextBook.id)
+                    play()
+                } else {
+                    _nextInSeriesPrompt.value = nextBook
                 }
             }
         }

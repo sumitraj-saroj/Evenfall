@@ -31,6 +31,26 @@ enum class ScanMode {
     FILE_IS_BOOK
 }
 
+enum class LibraryTab {
+    BOOKS,
+    SERIES,
+    AUTHORS
+}
+
+enum class LibraryViewMode {
+    LIST,
+    GRID
+}
+
+enum class LibrarySortBy {
+    RECENTLY_PLAYED,
+    TITLE,
+    AUTHOR,
+    DURATION,
+    PROGRESS,
+    DATE_ADDED
+}
+
 @Singleton
 class PreferencesManager @Inject constructor(
     @ApplicationContext private val context: Context
@@ -55,6 +75,15 @@ class PreferencesManager @Inject constructor(
         val KEY_AUTO_MARK_FINISHED = booleanPreferencesKey("auto_mark_finished")
         val KEY_BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
         val KEY_LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
+        val KEY_AUTO_PLAY_NEXT_IN_SERIES = booleanPreferencesKey("auto_play_next_in_series")
+        val KEY_LIBRARY_TAB = stringPreferencesKey("library_tab")
+        val KEY_LIBRARY_VIEW_MODE = stringPreferencesKey("library_view_mode")
+        val KEY_LIBRARY_SORT_BY = stringPreferencesKey("library_sort_by")
+        val KEY_LIBRARY_SORT_ASCENDING = booleanPreferencesKey("library_sort_ascending")
+        val KEY_FILTER_STATUS = stringSetPreferencesKey("filter_status")
+        val KEY_FILTER_COLLECTION_ID = longPreferencesKey("filter_collection_id")
+        val KEY_FILTER_SERIES_ONLY = booleanPreferencesKey("filter_series_only")
+        val KEY_FILTER_UNAVAILABLE_ONLY = booleanPreferencesKey("filter_unavailable_only")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -109,6 +138,43 @@ class PreferencesManager @Inject constructor(
 
     val lastBackupTimestamp: Flow<Long?> = dataStore.data.map { it[KEY_LAST_BACKUP_TIMESTAMP] }
 
+    val autoPlayNextInSeries: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_PLAY_NEXT_IN_SERIES] ?: false }
+
+    val libraryTab: Flow<LibraryTab> = dataStore.data.map { prefs ->
+        when (prefs[KEY_LIBRARY_TAB]) {
+            LibraryTab.SERIES.name -> LibraryTab.SERIES
+            LibraryTab.AUTHORS.name -> LibraryTab.AUTHORS
+            else -> LibraryTab.BOOKS
+        }
+    }
+
+    val libraryViewMode: Flow<LibraryViewMode> = dataStore.data.map { prefs ->
+        when (prefs[KEY_LIBRARY_VIEW_MODE]) {
+            LibraryViewMode.GRID.name -> LibraryViewMode.GRID
+            else -> LibraryViewMode.LIST
+        }
+    }
+
+    val librarySortBy: Flow<LibrarySortBy> = dataStore.data.map { prefs ->
+        try {
+            prefs[KEY_LIBRARY_SORT_BY]?.let { LibrarySortBy.valueOf(it) } ?: LibrarySortBy.RECENTLY_PLAYED
+        } catch (_: Exception) {
+            LibrarySortBy.RECENTLY_PLAYED
+        }
+    }
+
+    val librarySortAscending: Flow<Boolean> = dataStore.data.map { it[KEY_LIBRARY_SORT_ASCENDING] ?: false }
+
+    val filterStatus: Flow<Set<String>> = dataStore.data.map { it[KEY_FILTER_STATUS] ?: emptySet() }
+
+    val filterCollectionId: Flow<Long?> = dataStore.data.map { prefs ->
+        prefs[KEY_FILTER_COLLECTION_ID]?.takeIf { it != -1L }
+    }
+
+    val filterSeriesOnly: Flow<Boolean> = dataStore.data.map { it[KEY_FILTER_SERIES_ONLY] ?: false }
+
+    val filterUnavailableOnly: Flow<Boolean> = dataStore.data.map { it[KEY_FILTER_UNAVAILABLE_ONLY] ?: false }
+
     suspend fun setThemeMode(mode: ThemeMode) = dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     suspend fun setPureBlack(enabled: Boolean) = dataStore.edit { it[KEY_PURE_BLACK] = enabled }
     suspend fun setColorScheme(scheme: ColorSchemeOption) = dataStore.edit { it[KEY_COLOR_SCHEME] = scheme.name }
@@ -137,4 +203,21 @@ class PreferencesManager @Inject constructor(
         if (uri != null) it[KEY_BACKUP_FOLDER_URI] = uri else it.remove(KEY_BACKUP_FOLDER_URI)
     }
     suspend fun setLastBackupTimestamp(timestamp: Long) = dataStore.edit { it[KEY_LAST_BACKUP_TIMESTAMP] = timestamp }
+    suspend fun setAutoPlayNextInSeries(enabled: Boolean) = dataStore.edit { it[KEY_AUTO_PLAY_NEXT_IN_SERIES] = enabled }
+    suspend fun setLibraryTab(tab: LibraryTab) = dataStore.edit { it[KEY_LIBRARY_TAB] = tab.name }
+    suspend fun setLibraryViewMode(mode: LibraryViewMode) = dataStore.edit { it[KEY_LIBRARY_VIEW_MODE] = mode.name }
+    suspend fun setLibrarySortBy(sort: LibrarySortBy) = dataStore.edit { it[KEY_LIBRARY_SORT_BY] = sort.name }
+    suspend fun setLibrarySortAscending(ascending: Boolean) = dataStore.edit { it[KEY_LIBRARY_SORT_ASCENDING] = ascending }
+    suspend fun setFilterStatus(statuses: Set<String>) = dataStore.edit { it[KEY_FILTER_STATUS] = statuses }
+    suspend fun setFilterCollectionId(collectionId: Long?) = dataStore.edit {
+        if (collectionId != null) it[KEY_FILTER_COLLECTION_ID] = collectionId else it.remove(KEY_FILTER_COLLECTION_ID)
+    }
+    suspend fun setFilterSeriesOnly(enabled: Boolean) = dataStore.edit { it[KEY_FILTER_SERIES_ONLY] = enabled }
+    suspend fun setFilterUnavailableOnly(enabled: Boolean) = dataStore.edit { it[KEY_FILTER_UNAVAILABLE_ONLY] = enabled }
+    suspend fun clearFilters() = dataStore.edit {
+        it.remove(KEY_FILTER_STATUS)
+        it.remove(KEY_FILTER_COLLECTION_ID)
+        it.remove(KEY_FILTER_SERIES_ONLY)
+        it.remove(KEY_FILTER_UNAVAILABLE_ONLY)
+    }
 }

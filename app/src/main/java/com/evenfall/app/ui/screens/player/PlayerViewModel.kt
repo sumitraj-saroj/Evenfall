@@ -7,11 +7,14 @@ import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.BookmarkDao
 import com.evenfall.app.data.db.dao.ChapterDao
+import com.evenfall.app.data.db.dao.CollectionDao
 import com.evenfall.app.data.db.entity.BookmarkEntity
 import com.evenfall.app.data.db.entity.BookmarkType
+import com.evenfall.app.data.db.entity.CollectionEntity
 import com.evenfall.app.playback.PlaybackManager
 import com.evenfall.app.playback.PlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -26,6 +29,7 @@ class PlayerViewModel @Inject constructor(
     private val bookmarkDao: BookmarkDao,
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
+    private val collectionDao: CollectionDao,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
@@ -156,6 +160,33 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             chapterDao.updateChapterTitleOverride(chapterId, newTitle.ifEmpty { null })
             playbackManager.loadBook(book.id, autoPlay = false)
+        }
+    }
+
+    val allCollections: Flow<List<CollectionEntity>> = collectionDao.getAllCollections()
+
+    fun getCollectionsForBook(bookId: Long, onResult: (Set<Long>) -> Unit) {
+        viewModelScope.launch {
+            val cols = collectionDao.getCollectionsForBookSync(bookId).map { it.id }.toSet()
+            onResult(cols)
+        }
+    }
+
+    fun setCollectionsForBook(bookId: Long, collectionIds: List<Long>) {
+        viewModelScope.launch {
+            collectionDao.setCollectionsForBook(bookId, collectionIds)
+        }
+    }
+
+    fun createCollection(name: String) {
+        viewModelScope.launch {
+            val existing = collectionDao.getCollectionByName(name)
+            if (existing == null) {
+                val count = collectionDao.getAllCollectionsSync().size
+                collectionDao.insertCollection(
+                    CollectionEntity(name = name, orderIndex = count)
+                )
+            }
         }
     }
 }
