@@ -1,28 +1,37 @@
 package com.evenfall.app.ui.screens.settings
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.evenfall.app.data.backup.BackupBook
+import com.evenfall.app.data.backup.BackupManager
+import com.evenfall.app.data.backup.EvenfallBackup
+import com.evenfall.app.data.backup.RestoreMergeMode
 import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.datastore.ThemeMode
-import com.evenfall.app.data.db.dao.BookmarkDao
 import com.evenfall.app.data.db.dao.BookDao
+import com.evenfall.app.data.db.dao.BookmarkDao
+import com.evenfall.app.data.db.dao.ChapterDao
+import com.evenfall.app.data.db.dao.HistoryDao
+import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.repository.LibraryRepository
+import com.evenfall.app.data.scanner.BookFileDescriptor
+import com.evenfall.app.data.scanner.LibraryRelinker
+import com.evenfall.app.data.scanner.NewBookMatchInfo
+import com.evenfall.app.data.scanner.OldBookMatchInfo
+import com.evenfall.app.data.scanner.RelinkAnalysis
+import com.evenfall.app.data.synthetic.SyntheticLibraryGenerator
 import com.evenfall.app.ui.theme.ColorSchemeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.OutputStreamWriter
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -36,7 +45,16 @@ data class SettingsUiState(
     val silenceSkippingEnabled: Boolean = false,
     val defaultSpeed: Float = 1.0f,
     val libraryFolders: Set<String> = emptySet(),
+    val backupFolderUri: String? = null,
+    val lastBackupTimestamp: Long? = null,
     val backupStatusMessage: String? = null,
+    val isBackingUp: Boolean = false,
+    val pendingRestoreBackup: EvenfallBackup? = null,
+    val restoreAnalysis: RelinkAnalysis? = null,
+    val restoreMergeMode: RestoreMergeMode = RestoreMergeMode.MERGE,
+    val isRestoring: Boolean = false,
+    val restoreSuccessMessage: String? = null,
+    val restoreErrorMessage: String? = null,
     val compactPlayer: Boolean = true,
     val autoMarkFinished: Boolean = true
 )
@@ -49,16 +67,40 @@ private data class ListeningPrefs(
     val autoMarkFinished: Boolean
 )
 
+private data class BackupStateHolder(
+    val folderUri: String?,
+    val lastBackup: Long?,
+    val statusMsg: String?,
+    val isBackingUp: Boolean,
+    val pendingRestore: EvenfallBackup?,
+    val restoreAnalysis: RelinkAnalysis?,
+    val restoreMergeMode: RestoreMergeMode,
+    val isRestoring: Boolean,
+    val restoreSuccessMsg: String?,
+    val restoreErrorMsg: String?
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val preferencesManager: PreferencesManager,
     private val libraryRepository: LibraryRepository,
     private val bookDao: BookDao,
-    private val bookmarkDao: BookmarkDao
+    private val chapterDao: ChapterDao,
+    private val bookmarkDao: BookmarkDao,
+    private val historyDao: HistoryDao,
+    private val backupManager: BackupManager,
+    private val syntheticLibraryGenerator: SyntheticLibraryGenerator
 ) : ViewModel() {
 
     private val _backupStatus = MutableStateFlow<String?>(null)
+    private val _isBackingUp = MutableStateFlow(false)
+    private val _pendingRestoreBackup = MutableStateFlow<EvenfallBackup?>(null)
+    private val _restoreAnalysis = MutableStateFlow<RelinkAnalysis?>(null)
+    private val _restoreMergeMode = MutableStateFlow(RestoreMergeMode.MERGE)
+    private val _isRestoring = MutableStateFlow(false)
+    private val _restoreSuccessMessage = MutableStateFlow<String?>(null)
+    private val _restoreErrorMessage = MutableStateFlow<String?>(null)
 
     private val appearanceFlow = combine(
         preferencesManager.themeMode,
@@ -78,12 +120,40 @@ class SettingsViewModel @Inject constructor(
         ListeningPrefs(skip, autoRewind, shake, compact, autoMark)
     }
 
+    private val backupStateFlow = combine(
+        preferencesManager.backupFolderUri,
+        preferencesManager.lastBackupTimestamp,
+        _backupStatus,
+        _isBackingUp,
+        _pendingRestoreBackup
+    ) { folder, lastBackup, status, isBackingUp, pendingRestore ->
+        Triple(folder, lastBackup, Triple(status, isBackingUp, pendingRestore))
+    }
+
+    private val restoreStateFlow = combine(
+        _restoreAnalysis,
+        _restoreMergeMode,
+        _isRestoring,
+        _restoreSuccessMessage,
+        _restoreErrorMessage
+    ) { analysis, mode, isRestoring, success, error ->
+        Pair(analysis, mode) to Triple(isRestoring, success, error)
+    }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         appearanceFlow,
         listeningFlow,
-        preferencesManager.libraryFolders
-    ) { appearance, listening, folders ->
+        preferencesManager.libraryFolders,
+        backupStateFlow,
+        restoreStateFlow
+    ) { appearance, listening, folders, backupData, restoreData ->
         val (theme, black, scheme) = appearance
+        val (folder, lastBackup, backupSub) = backupData
+        val (status, isBackingUp, pendingRestore) = backupSub
+        val (pair, triple) = restoreData
+        val (analysis, mode) = pair
+        val (isRestoring, success, error) = triple
+
         SettingsUiState(
             themeMode = theme,
             pureBlack = black,
@@ -93,7 +163,17 @@ class SettingsViewModel @Inject constructor(
             shakeToExtendEnabled = listening.shake,
             compactPlayer = listening.compact,
             autoMarkFinished = listening.autoMarkFinished,
-            libraryFolders = folders
+            libraryFolders = folders,
+            backupFolderUri = folder,
+            lastBackupTimestamp = lastBackup,
+            backupStatusMessage = status,
+            isBackingUp = isBackingUp,
+            pendingRestoreBackup = pendingRestore,
+            restoreAnalysis = analysis,
+            restoreMergeMode = mode,
+            isRestoring = isRestoring,
+            restoreSuccessMessage = success,
+            restoreErrorMessage = error
         )
     }.stateIn(
         scope = viewModelScope,
@@ -147,51 +227,190 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun exportBackup(uri: Uri) {
+    fun setBackupFolder(uri: Uri) {
         viewModelScope.launch {
             try {
-                val books = bookDao.getAllBooks().first()
-                val jsonRoot = JSONObject()
-                jsonRoot.put("version", 1)
-                jsonRoot.put("app", "Evenfall")
-                jsonRoot.put("timestamp", System.currentTimeMillis())
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            } catch (_: Exception) {}
+            preferencesManager.setBackupFolderUri(uri.toString())
+            backupManager.scheduleDailyBackup()
+            _backupStatus.value = "Backup folder configured"
+        }
+    }
 
-                val booksArray = JSONArray()
-                for (book in books) {
-                    val bookObj = JSONObject()
-                    bookObj.put("title", book.title)
-                    bookObj.put("author", book.author)
-                    bookObj.put("folderIdentifier", book.folderIdentifier)
-                    bookObj.put("currentPositionMs", book.currentPositionMs)
-                    bookObj.put("chapterIndex", book.currentChapterIndex)
-                    bookObj.put("playbackSpeed", book.playbackSpeed.toDouble())
-                    bookObj.put("isFinished", book.isFinished)
+    fun clearBackupFolder() {
+        viewModelScope.launch {
+            backupManager.cancelDailyBackup()
+            preferencesManager.setBackupFolderUri(null)
+            _backupStatus.value = null
+        }
+    }
 
-                    val bookmarks = bookmarkDao.getBookmarksForBook(book.id).first()
-                    val bookmarksArray = JSONArray()
-                    for (bm in bookmarks) {
-                        val bmObj = JSONObject()
-                        bmObj.put("title", bm.title)
-                        bmObj.put("chapterIndex", bm.chapterIndex)
-                        bmObj.put("positionMs", bm.positionMs)
-                        bmObj.put("type", bm.type.name)
-                        bmObj.put("note", bm.note ?: "")
-                        bookmarksArray.put(bmObj)
-                    }
-                    bookObj.put("bookmarks", bookmarksArray)
-                    booksArray.put(bookObj)
+    fun backupNow() {
+        val folderUriStr = uiState.value.backupFolderUri
+        if (folderUriStr.isNullOrBlank()) {
+            _backupStatus.value = "Please select a backup folder first"
+            return
+        }
+
+        viewModelScope.launch {
+            _isBackingUp.value = true
+            try {
+                val backup = backupManager.createBackup()
+                val result = backupManager.writeBackupToFolder(Uri.parse(folderUriStr), backup)
+                if (result.isSuccess) {
+                    _backupStatus.value = "Backup created: ${result.getOrNull()}"
+                } else {
+                    _backupStatus.value = "Backup failed: ${result.exceptionOrNull()?.localizedMessage}"
                 }
-                jsonRoot.put("books", booksArray)
-
-                context.contentResolver.openOutputStream(uri)?.use { os ->
-                    OutputStreamWriter(os).use { writer ->
-                        writer.write(jsonRoot.toString(2))
-                    }
-                }
-                _backupStatus.value = "Backup exported successfully!"
             } catch (e: Exception) {
-                _backupStatus.value = "Export failed: ${e.message}"
+                _backupStatus.value = "Backup failed: ${e.localizedMessage}"
+            } finally {
+                _isBackingUp.value = false
             }
+        }
+    }
+
+    fun onRestoreFileSelected(fileUri: Uri) {
+        viewModelScope.launch {
+            _restoreErrorMessage.value = null
+            _restoreSuccessMessage.value = null
+            val result = backupManager.readBackupFromUri(fileUri)
+            if (result.isFailure) {
+                _restoreErrorMessage.value = result.exceptionOrNull()?.localizedMessage ?: "Failed to read backup"
+                return@launch
+            }
+
+            val backup = result.getOrThrow()
+            _pendingRestoreBackup.value = backup
+
+            // Match backup books with device books using LibraryRelinker
+            val currentBooks = bookDao.getAllBooksSync()
+            val oldMatchInfos = backup.books.mapIndexed { idx, bb ->
+                val files = bb.chapters.map { ch ->
+                    BookFileDescriptor(ch.fileUri.substringAfterLast('/'), ch.durationMs)
+                }
+                OldBookMatchInfo(
+                    id = idx.toLong(),
+                    title = bb.title,
+                    author = bb.author,
+                    totalDurationMs = bb.totalDurationMs,
+                    relativePath = bb.folderUri.substringAfterLast('/'),
+                    fileCount = bb.fileCount,
+                    files = files,
+                    bookEntity = BookEntity(
+                        id = idx.toLong(),
+                        title = bb.title,
+                        author = bb.author,
+                        folderUri = bb.folderUri,
+                        folderIdentifier = bb.folderIdentifier,
+                        totalDurationMs = bb.totalDurationMs
+                    )
+                )
+            }
+
+            val newMatchInfos = currentBooks.map { cb ->
+                val chapters = chapterDao.getChaptersForBookSync(cb.id)
+                val files = chapters.map { ch ->
+                    BookFileDescriptor(ch.fileUri.substringAfterLast('/'), ch.durationMs)
+                }
+                NewBookMatchInfo(
+                    identifier = cb.folderIdentifier,
+                    title = cb.displayTitle,
+                    author = cb.displayAuthor,
+                    totalDurationMs = cb.totalDurationMs,
+                    relativePath = cb.folderUri.substringAfterLast('/'),
+                    fileCount = cb.fileCount,
+                    files = files
+                )
+            }
+
+            val analysis = LibraryRelinker.matchBooks(oldMatchInfos, newMatchInfos)
+            _restoreAnalysis.value = analysis
+        }
+    }
+
+    fun setRestoreMergeMode(mode: RestoreMergeMode) {
+        _restoreMergeMode.value = mode
+    }
+
+    fun confirmRestore() {
+        val backup = _pendingRestoreBackup.value ?: return
+        val analysis = _restoreAnalysis.value ?: return
+        val mode = _restoreMergeMode.value
+
+        viewModelScope.launch {
+            _isRestoring.value = true
+            try {
+                val currentBooks = bookDao.getAllBooksSync()
+                val matchedPairs = mutableListOf<Pair<BookEntity, BackupBook>>()
+
+                for (match in (analysis.matched + analysis.ambiguous)) {
+                    val candidate = match.matchedCandidate ?: continue
+                    val deviceBook = currentBooks.firstOrNull { it.folderIdentifier == candidate.identifier } ?: continue
+                    val backupBook = backup.books.getOrNull(match.oldBook.id.toInt()) ?: continue
+                    matchedPairs.add(deviceBook to backupBook)
+                }
+
+                val result = backupManager.applyRestore(backup, matchedPairs, mode)
+                if (result.isSuccess) {
+                    _restoreSuccessMessage.value = "Restored ${result.getOrNull() ?: 0} books successfully!"
+                    _pendingRestoreBackup.value = null
+                    _restoreAnalysis.value = null
+                } else {
+                    _restoreErrorMessage.value = "Restore failed: ${result.exceptionOrNull()?.localizedMessage}"
+                }
+            } catch (e: Exception) {
+                _restoreErrorMessage.value = "Restore failed: ${e.localizedMessage}"
+            } finally {
+                _isRestoring.value = false
+            }
+        }
+    }
+
+    fun dismissRestoreReview() {
+        _pendingRestoreBackup.value = null
+        _restoreAnalysis.value = null
+        _restoreErrorMessage.value = null
+    }
+
+    fun clearStatusMessage() {
+        _backupStatus.value = null
+        _restoreSuccessMessage.value = null
+        _restoreErrorMessage.value = null
+    }
+
+    val scanProgress = libraryRepository.scanProgress
+
+    fun cancelScan() {
+        libraryRepository.cancelScan()
+    }
+
+    suspend fun exportAllBookmarks(format: com.evenfall.app.util.ExportFormat): String {
+        val books = bookDao.getAllBooksSync()
+        val booksData = books.map { b ->
+            val bookmarks = bookmarkDao.getBookmarksForBookSync(b.id)
+            val chapters = chapterDao.getChaptersForBookSync(b.id)
+            com.evenfall.app.util.BookExportData(b, bookmarks, chapters)
+        }
+        return com.evenfall.app.util.BookmarkExporter.exportAll(booksData, format)
+    }
+
+    fun generateSyntheticLibrary(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            _backupStatus.value = "Generating 500+ synthetic books..."
+            val count = syntheticLibraryGenerator.generateSyntheticLibrary(500)
+            _backupStatus.value = "Generated $count synthetic books!"
+            onComplete(count)
+        }
+    }
+
+    fun clearSyntheticLibrary(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val count = syntheticLibraryGenerator.clearSyntheticBooks()
+            _backupStatus.value = "Cleared $count synthetic books"
+            onComplete(count)
         }
     }
 }

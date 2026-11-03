@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -52,6 +53,8 @@ class PreferencesManager @Inject constructor(
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_COMPACT_PLAYER = booleanPreferencesKey("compact_player")
         val KEY_AUTO_MARK_FINISHED = booleanPreferencesKey("auto_mark_finished")
+        val KEY_BACKUP_FOLDER_URI = stringPreferencesKey("backup_folder_uri")
+        val KEY_LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -102,6 +105,10 @@ class PreferencesManager @Inject constructor(
 
     val autoMarkFinished: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_MARK_FINISHED] ?: true }
 
+    val backupFolderUri: Flow<String?> = dataStore.data.map { it[KEY_BACKUP_FOLDER_URI] }
+
+    val lastBackupTimestamp: Flow<Long?> = dataStore.data.map { it[KEY_LAST_BACKUP_TIMESTAMP] }
+
     suspend fun setThemeMode(mode: ThemeMode) = dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     suspend fun setPureBlack(enabled: Boolean) = dataStore.edit { it[KEY_PURE_BLACK] = enabled }
     suspend fun setColorScheme(scheme: ColorSchemeOption) = dataStore.edit { it[KEY_COLOR_SCHEME] = scheme.name }
@@ -126,4 +133,8 @@ class PreferencesManager @Inject constructor(
     suspend fun setOnboardingCompleted(completed: Boolean) = dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
     suspend fun setCompactPlayer(enabled: Boolean) = dataStore.edit { it[KEY_COMPACT_PLAYER] = enabled }
     suspend fun setAutoMarkFinished(enabled: Boolean) = dataStore.edit { it[KEY_AUTO_MARK_FINISHED] = enabled }
+    suspend fun setBackupFolderUri(uri: String?) = dataStore.edit {
+        if (uri != null) it[KEY_BACKUP_FOLDER_URI] = uri else it.remove(KEY_BACKUP_FOLDER_URI)
+    }
+    suspend fun setLastBackupTimestamp(timestamp: Long) = dataStore.edit { it[KEY_LAST_BACKUP_TIMESTAMP] = timestamp }
 }

@@ -1,5 +1,8 @@
 package com.evenfall.app.ui.screens.bookmarks
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +40,7 @@ import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
@@ -69,11 +73,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.evenfall.app.R
 import com.evenfall.app.data.db.entity.BookmarkEntity
 import com.evenfall.app.data.db.entity.BookmarkType
 import com.evenfall.app.data.db.entity.HistoryEntity
@@ -81,6 +88,8 @@ import com.evenfall.app.data.db.entity.HistoryEventType
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.theme.CookieShape
 import com.evenfall.app.ui.theme.SerifFont
+import com.evenfall.app.util.BookmarkExporter
+import com.evenfall.app.util.ExportFormat
 import com.evenfall.app.util.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,9 +101,21 @@ fun BookmarksHistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val book = uiState.book
+    val context = LocalContext.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     var showSortMenu by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var selectedExportFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
+
+    val saveFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/*")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val content = viewModel.exportBookmarks(selectedExportFormat)
+            BookmarkExporter.writeToUri(context, uri, content)
+        }
+    }
 
     // Calm gradient background matching Images 4 & 5
     val backgroundBrush = if (isDark) {
@@ -155,6 +176,12 @@ fun BookmarksHistoryScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = { showExportDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = stringResource(R.string.export_bookmarks)
+                            )
+                        }
                         Box {
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(
@@ -511,6 +538,85 @@ fun BookmarksHistoryScreen(
                 dismissButton = {
                     TextButton(onClick = { showSaveDialog = false }) {
                         Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Export Bookmarks Dialog
+        if (showExportDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportDialog = false },
+                title = {
+                    Text(
+                        stringResource(R.string.export_bookmarks),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Choose export format:",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedExportFormat = ExportFormat.MARKDOWN }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedExportFormat == ExportFormat.MARKDOWN,
+                                onClick = { selectedExportFormat = ExportFormat.MARKDOWN }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_markdown), fontSize = 14.sp)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedExportFormat = ExportFormat.TEXT }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedExportFormat == ExportFormat.TEXT,
+                                onClick = { selectedExportFormat = ExportFormat.TEXT }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_text), fontSize = 14.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val content = viewModel.exportBookmarks(selectedExportFormat)
+                            val title = "${book?.displayTitle ?: "Bookmarks"} - Evenfall"
+                            BookmarkExporter.shareExport(context, content, title)
+                            showExportDialog = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.share_export))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            val ext = if (selectedExportFormat == ExportFormat.MARKDOWN) "md" else "txt"
+                            val safeTitle = (book?.displayTitle ?: "bookmarks").replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                            saveFileLauncher.launch("$safeTitle-bookmarks.$ext")
+                            showExportDialog = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.save_export))
                     }
                 }
             )

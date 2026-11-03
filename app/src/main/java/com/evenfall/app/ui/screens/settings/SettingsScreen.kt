@@ -31,31 +31,44 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.res.stringResource
 import com.evenfall.app.R
+import com.evenfall.app.data.backup.RestoreMergeMode
+import com.evenfall.app.util.TimeUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,16 +91,42 @@ import com.evenfall.app.ui.theme.SerifFont
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenScanLog: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scanProgress by viewModel.scanProgress.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
+    var showExportAllDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var exportAllFormat by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.evenfall.app.util.ExportFormat.MARKDOWN) }
+
+    val backupFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         if (uri != null) {
-            viewModel.exportBackup(uri)
+            viewModel.setBackupFolder(uri)
+        }
+    }
+
+    val restoreFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.onRestoreFileSelected(uri)
+        }
+    }
+
+    val saveAllBookmarksLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/*")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val content = viewModel.exportAllBookmarks(exportAllFormat)
+                com.evenfall.app.util.BookmarkExporter.writeToUri(context, uri, content)
+            }
         }
     }
 
@@ -530,7 +569,7 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "Library & Backup",
+                            text = stringResource(R.string.backup_and_library),
                             fontFamily = SerifFont,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
@@ -538,6 +577,75 @@ fun SettingsScreen(
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
+
+                        // Active scanning progress indicator or cancelled resume banner
+                        val currentProgress = scanProgress
+                        if (currentProgress is com.evenfall.app.data.scanner.ScanProgress.Scanning) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (currentProgress.total > 0) {
+                                                stringResource(R.string.scanning_progress, currentProgress.current, currentProgress.total)
+                                            } else {
+                                                currentProgress.message
+                                            },
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = viewModel::cancelScan,
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = stringResource(R.string.cancel_scan),
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    com.evenfall.app.ui.components.WavyProgressLine(
+                                        progress = if (currentProgress.total > 0) currentProgress.current.toFloat() / currentProgress.total else 0.5f,
+                                        isPlaying = true,
+                                        activeColor = MaterialTheme.colorScheme.primary,
+                                        inactiveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        } else if (currentProgress is com.evenfall.app.data.scanner.ScanProgress.Cancelled) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Scan paused",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = viewModel::rescanLibrary) {
+                                        Text(stringResource(R.string.resume_scan))
+                                    }
+                                }
+                            }
+                        }
 
                         // Rescan library button
                         Surface(
@@ -562,23 +670,168 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Export backup button
+                        // Scan log button
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.surface,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { exportLauncher.launch("evenfall_backup.json") }
+                                .clickable(onClick = onOpenScanLog)
                         ) {
                             Row(
                                 modifier = Modifier.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Save, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text("Export bookmarks and progress", fontWeight = FontWeight.SemiBold)
-                                    Text("Save a local JSON backup file to device", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.scan_log), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        stringResource(R.string.scan_log_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Backup folder picker row
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { backupFolderLauncher.launch(null) }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.backup_folder_title), fontWeight = FontWeight.SemiBold)
+                                    val folderText = if (uiState.backupFolderUri != null) {
+                                        Uri.parse(uiState.backupFolderUri).lastPathSegment?.substringAfterLast(':') ?: uiState.backupFolderUri
+                                    } else {
+                                        stringResource(R.string.backup_folder_none)
+                                    }
+                                    Text(
+                                        folderText ?: "",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2
+                                    )
+                                }
+                                if (uiState.backupFolderUri != null) {
+                                    IconButton(onClick = viewModel::clearBackupFolder) {
+                                        Icon(
+                                            Icons.Default.Remove,
+                                            contentDescription = "Clear backup folder",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Back up now button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    enabled = !uiState.backupFolderUri.isNullOrBlank() && !uiState.isBackingUp,
+                                    onClick = viewModel::backupNow
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (uiState.isBackingUp) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        Icons.Default.Save,
+                                        contentDescription = null,
+                                        tint = if (!uiState.backupFolderUri.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        stringResource(R.string.backup_now),
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (!uiState.backupFolderUri.isNullOrBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    val lastBackupText = uiState.lastBackupTimestamp?.let {
+                                        stringResource(R.string.last_backup_format, "${TimeUtils.formatDate(it)} ${TimeUtils.formatTimeOfDay(it)}")
+                                    } ?: stringResource(R.string.never_backed_up)
+                                    Text(
+                                        lastBackupText,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Restore from backup button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { restoreFileLauncher.launch(arrayOf("application/json", "*/*")) }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Replay, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(stringResource(R.string.restore_from_backup), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "Restore positions, bookmarks, and settings from a JSON backup file",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Export all bookmarks button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showExportAllDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(stringResource(R.string.export_all_bookmarks), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        stringResource(R.string.export_all_bookmarks_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -616,8 +869,303 @@ fun SettingsScreen(
                     }
                 }
 
+                if (com.evenfall.app.BuildConfig.DEBUG) {
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = "Developer & Stress Testing",
+                                fontFamily = SerifFont,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Generate synthetic library of 500+ books with 20+ hour M4B files (100+ chapters) to verify smooth scrolling, stable memory, and position persistence.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { viewModel.generateSyntheticLibrary() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Generate 500+", fontSize = 12.sp)
+                                }
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = { viewModel.clearSyntheticLibrary() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Clear synthetic", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // Restore Review Dialog
+        if (uiState.pendingRestoreBackup != null) {
+            val backup = uiState.pendingRestoreBackup!!
+            val analysis = uiState.restoreAnalysis
+            AlertDialog(
+                onDismissRequest = {
+                    if (!uiState.isRestoring) viewModel.dismissRestoreReview()
+                },
+                title = {
+                    Text(
+                        stringResource(R.string.restore_dialog_title),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Backup file created: ${TimeUtils.formatDate(backup.createdAt)} ${TimeUtils.formatTimeOfDay(backup.createdAt)}",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val totalBackupBooks = backup.books.size
+                        val matchedCount = analysis?.matched?.size ?: 0
+                        Text(
+                            text = stringResource(R.string.restore_dialog_books_found, totalBackupBooks, matchedCount),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+
+                        if (analysis != null) {
+                            if (analysis.ambiguous.isNotEmpty()) {
+                                Text(
+                                    text = "${analysis.ambiguous.size} books matched with lower confidence.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            if (analysis.unmatchedOld.isNotEmpty()) {
+                                Text(
+                                    text = "${analysis.unmatchedOld.size} books in backup not found in current library.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                        Text(
+                            text = stringResource(R.string.restore_merge_mode_title),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+
+                        // Mode 1: MERGE
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setRestoreMergeMode(RestoreMergeMode.MERGE) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = uiState.restoreMergeMode == RestoreMergeMode.MERGE,
+                                onClick = { viewModel.setRestoreMergeMode(RestoreMergeMode.MERGE) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(stringResource(R.string.restore_mode_merge), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(stringResource(R.string.restore_mode_merge_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // Mode 2: KEEP_NEWER
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_NEWER) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = uiState.restoreMergeMode == RestoreMergeMode.KEEP_NEWER,
+                                onClick = { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_NEWER) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(stringResource(R.string.restore_mode_keep_newer), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(stringResource(R.string.restore_mode_keep_newer_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // Mode 3: KEEP_BACKUP
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_BACKUP) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = uiState.restoreMergeMode == RestoreMergeMode.KEEP_BACKUP,
+                                onClick = { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_BACKUP) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(stringResource(R.string.restore_mode_keep_backup), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(stringResource(R.string.restore_mode_keep_backup_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = viewModel::confirmRestore,
+                        enabled = !uiState.isRestoring
+                    ) {
+                        if (uiState.isRestoring) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(stringResource(R.string.apply_restore))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = viewModel::dismissRestoreReview,
+                        enabled = !uiState.isRestoring
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+
+        // Restore Success Dialog
+        if (uiState.restoreSuccessMessage != null) {
+            AlertDialog(
+                onDismissRequest = viewModel::clearStatusMessage,
+                title = { Text("Restore Complete", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                text = { Text(uiState.restoreSuccessMessage ?: "") },
+                confirmButton = {
+                    TextButton(onClick = viewModel::clearStatusMessage) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
+        // Restore Error Dialog
+        if (uiState.restoreErrorMessage != null) {
+            AlertDialog(
+                onDismissRequest = viewModel::clearStatusMessage,
+                title = { Text("Restore Failed", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                text = { Text(uiState.restoreErrorMessage ?: "") },
+                confirmButton = {
+                    TextButton(onClick = viewModel::clearStatusMessage) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
+        // Export All Bookmarks Dialog
+        if (showExportAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportAllDialog = false },
+                title = {
+                    Text(
+                        stringResource(R.string.export_all_bookmarks),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Choose export format:",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { exportAllFormat = com.evenfall.app.util.ExportFormat.MARKDOWN }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = exportAllFormat == com.evenfall.app.util.ExportFormat.MARKDOWN,
+                                onClick = { exportAllFormat = com.evenfall.app.util.ExportFormat.MARKDOWN }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_markdown), fontSize = 14.sp)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { exportAllFormat = com.evenfall.app.util.ExportFormat.TEXT }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = exportAllFormat == com.evenfall.app.util.ExportFormat.TEXT,
+                                onClick = { exportAllFormat = com.evenfall.app.util.ExportFormat.TEXT }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_format_text), fontSize = 14.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                val content = viewModel.exportAllBookmarks(exportAllFormat)
+                                com.evenfall.app.util.BookmarkExporter.shareExport(
+                                    context,
+                                    content,
+                                    "Evenfall - All Bookmarks"
+                                )
+                                showExportAllDialog = false
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.share_export))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            val ext = if (exportAllFormat == com.evenfall.app.util.ExportFormat.MARKDOWN) "md" else "txt"
+                            saveAllBookmarksLauncher.launch("evenfall-all-bookmarks.$ext")
+                            showExportAllDialog = false
+                        }
+                    ) {
+                        Text(stringResource(R.string.save_export))
+                    }
+                }
+            )
         }
     }
 }

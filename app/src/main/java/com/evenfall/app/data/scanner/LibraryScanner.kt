@@ -6,19 +6,26 @@ import androidx.documentfile.provider.DocumentFile
 import com.evenfall.app.data.datastore.ScanMode
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
+import com.evenfall.app.data.db.dao.ScanIssueDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.ChapterEntity
+import com.evenfall.app.data.db.entity.ScanIssueEntity
+import com.evenfall.app.data.db.entity.ScanIssueReason
 import com.evenfall.app.data.parser.AudioMetadataParser
 import com.evenfall.app.data.parser.CoverArtResolver
 import com.evenfall.app.data.parser.FolderImageCandidate
 import com.evenfall.app.data.parser.TitleSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,23 +52,126 @@ data class ScannedAudioFile(
 )
 
 sealed class ScanProgress {
-    data class Scanning(val message: String) : ScanProgress()
+    data class Scanning(val message: String, val current: Int = 0, val total: Int = 0) : ScanProgress()
     data class Found(val books: List<ScannedBookPreview>) : ScanProgress()
     data class Error(val message: String) : ScanProgress()
+    data object Cancelled : ScanProgress()
 }
 
 @Singleton
 class LibraryScanner @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val metadataParser: AudioMetadataParser,
     private val coverArtResolver: CoverArtResolver,
     private val bookDao: BookDao,
-    private val chapterDao: ChapterDao
+    private val chapterDao: ChapterDao,
+    private val scanIssueDao: ScanIssueDao
 ) {
     private val supportedExtensions = setOf("m4b", "mp3", "m4a", "ogg", "oga", "opus")
+    private val isCancelled = AtomicBoolean(false)
+
+    fun cancelScan() {
+        isCancelled.set(true)
+    }
+
+    fun resetCancellation() {
+        isCancelled.set(false)
+    }
+
+    suspend fun parseAudioFileSafely(
+        doc: DocumentFile,
+        parentFolderName: String
+    ): ScannedAudioFile? {
+        val name = doc.name ?: "Unknown Audio"
+        val uri = doc.uri
+        val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+
+        if (ext.isNotEmpty() && !supportedExtensions.contains(ext)) {
+            scanIssueDao.insert(
+                ScanIssueEntity(
+                    filePath = uri.toString(),
+                    fileName = name,
+                    reason = ScanIssueReason.UNSUPPORTED_CODEC,
+                    details = "Unsupported file extension '.$ext'"
+                )
+            )
+            return null
+        }
+
+        return try {
+            val meta = withTimeoutOrNull(5000L) {
+                val fallbackTitle = name.substringBeforeLast(".")
+                metadataParser.parseFileMetadata(uri, fallbackTitle, parentFolderName)
+            }
+
+            if (meta == null) {
+                scanIssueDao.insert(
+                    ScanIssueEntity(
+                        filePath = uri.toString(),
+                        fileName = name,
+                        reason = ScanIssueReason.TIMEOUT,
+                        details = "Metadata extraction timed out after 5000ms"
+                    )
+                )
+                return null
+            }
+
+            if (meta.durationMs <= 0L) {
+                scanIssueDao.insert(
+                    ScanIssueEntity(
+                        filePath = uri.toString(),
+                        fileName = name,
+                        reason = ScanIssueReason.NO_AUDIO_TRACK,
+                        details = "No audio track detected or 0ms duration"
+                    )
+                )
+                return null
+            }
+
+            val resolvedTitle = TitleSanitizer.resolveTitle(
+                titleTag = meta.title,
+                albumTag = meta.album,
+                folderName = parentFolderName,
+                fileName = name.substringBeforeLast(".")
+            )
+
+            ScannedAudioFile(
+                name = name,
+                uri = uri,
+                title = resolvedTitle,
+                author = meta.author,
+                durationMs = meta.durationMs,
+                trackNumber = meta.trackNumber,
+                coverPath = meta.coverPath,
+                album = meta.album
+            )
+        } catch (e: SecurityException) {
+            scanIssueDao.insert(
+                ScanIssueEntity(
+                    filePath = uri.toString(),
+                    fileName = name,
+                    reason = ScanIssueReason.PERMISSION_DENIED,
+                    details = e.localizedMessage ?: "Permission denied by system storage"
+                )
+            )
+            null
+        } catch (e: Exception) {
+            scanIssueDao.insert(
+                ScanIssueEntity(
+                    filePath = uri.toString(),
+                    fileName = name,
+                    reason = ScanIssueReason.UNREADABLE,
+                    details = e.localizedMessage ?: "Failed to read audio file"
+                )
+            )
+            null
+        }
+    }
 
     fun scanFolderPreview(treeUri: Uri, scanMode: ScanMode): Flow<ScanProgress> = flow {
-        emit(ScanProgress.Scanning("Scanning folder..."))
+        isCancelled.set(false)
+        emit(ScanProgress.Scanning("Scanning folder...", 0, 0))
+
         try {
             val rootDoc = DocumentFile.fromTreeUri(context, treeUri)
             if (rootDoc == null || !rootDoc.isDirectory) {
@@ -73,20 +183,21 @@ class LibraryScanner @Inject constructor(
             val naturalComparator = AudioMetadataParser.naturalOrderComparator()
 
             if (scanMode == ScanMode.FILE_IS_BOOK) {
-                // Every single audio file is its own book
                 val files = findAudioFilesRecursive(rootDoc)
+                val total = files.size
+                var current = 0
+
                 for (doc in files) {
-                    val rawName = doc.name ?: "Unknown Audio"
-                    val fallbackTitle = rawName.substringBeforeLast(".")
-                    val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle, rootDoc.name)
-                    val resolvedTitle = TitleSanitizer.resolveTitle(
-                        titleTag = meta.title,
-                        albumTag = meta.album,
-                        folderName = rootDoc.name,
-                        fileName = fallbackTitle
-                    )
-                    val resolvedCover = if (meta.coverPath != null) {
-                        meta.coverPath
+                    if (isCancelled.get() || !currentCoroutineContext().isActive) {
+                        emit(ScanProgress.Cancelled)
+                        return@flow
+                    }
+                    current++
+                    emit(ScanProgress.Scanning("Scanning $current of $total", current, total))
+
+                    val scannedFile = parseAudioFileSafely(doc, rootDoc.name ?: "Audiobook") ?: continue
+                    val resolvedCover = if (scannedFile.coverPath != null) {
+                        scannedFile.coverPath
                     } else {
                         val parent = doc.parentFile ?: rootDoc
                         val folderCandidates = findFolderImageCandidates(parent)
@@ -96,21 +207,12 @@ class LibraryScanner @Inject constructor(
                             folderCandidates = folderCandidates
                         ).path
                     }
-                    val scannedFile = ScannedAudioFile(
-                        name = rawName,
-                        uri = doc.uri,
-                        title = resolvedTitle,
-                        author = meta.author,
-                        durationMs = meta.durationMs,
-                        trackNumber = meta.trackNumber,
-                        coverPath = resolvedCover,
-                        album = meta.album
-                    )
+
                     books.add(
                         ScannedBookPreview(
-                            title = resolvedTitle,
-                            author = meta.author,
-                            durationMs = meta.durationMs,
+                            title = scannedFile.title,
+                            author = scannedFile.author,
+                            durationMs = scannedFile.durationMs,
                             fileCount = 1,
                             coverPath = resolvedCover,
                             folderUri = doc.uri.toString(),
@@ -120,20 +222,54 @@ class LibraryScanner @Inject constructor(
                     )
                 }
             } else {
-                // Each subfolder is a book
                 val children = rootDoc.listFiles()
                 val subdirectories = children.filter { it.isDirectory }
                 val looseAudioFiles = children.filter { isAudioFile(it) }
+
+                // Count total files across all folders
+                val dirAudioFiles = mutableListOf<Pair<DocumentFile, List<DocumentFile>>>()
+                var total = looseAudioFiles.size
 
                 for (dir in subdirectories) {
                     val allDirChildren = dir.listFiles()
                     val audioFiles = allDirChildren.filter { isAudioFile(it) }
                     if (audioFiles.isNotEmpty()) {
-                        val folderCandidates = findFolderImageCandidates(allDirChildren)
-                        val book = processAudiobookFiles(
-                            folderName = dir.name ?: "Unknown Book",
+                        dirAudioFiles.add(dir to audioFiles)
+                        total += audioFiles.size
+                    }
+                }
+
+                var current = 0
+
+                for ((dir, audioFiles) in dirAudioFiles) {
+                    if (isCancelled.get() || !currentCoroutineContext().isActive) {
+                        emit(ScanProgress.Cancelled)
+                        return@flow
+                    }
+
+                    val folderName = dir.name ?: "Unknown Book"
+                    val parsedFiles = mutableListOf<ScannedAudioFile>()
+
+                    for (fileDoc in audioFiles) {
+                        if (isCancelled.get() || !currentCoroutineContext().isActive) {
+                            emit(ScanProgress.Cancelled)
+                            return@flow
+                        }
+                        current++
+                        emit(ScanProgress.Scanning("Scanning $current of $total", current, total))
+
+                        val parsed = parseAudioFileSafely(fileDoc, folderName)
+                        if (parsed != null) {
+                            parsedFiles.add(parsed)
+                        }
+                    }
+
+                    if (parsedFiles.isNotEmpty()) {
+                        val folderCandidates = findFolderImageCandidates(dir.listFiles())
+                        val book = assembleBookFromFiles(
+                            folderName = folderName,
                             folderUri = dir.uri.toString(),
-                            files = audioFiles,
+                            parsedFiles = parsedFiles,
                             folderCandidates = folderCandidates,
                             naturalComparator = naturalComparator
                         )
@@ -141,18 +277,36 @@ class LibraryScanner @Inject constructor(
                     }
                 }
 
-                // If root folder also has loose audio files, check if they make up a book
+                // Loose files in root directory
                 if (looseAudioFiles.isNotEmpty()) {
                     val rootName = rootDoc.name ?: "Audiobooks"
-                    val folderCandidates = findFolderImageCandidates(children)
-                    val book = processAudiobookFiles(
-                        folderName = rootName,
-                        folderUri = rootDoc.uri.toString(),
-                        files = looseAudioFiles,
-                        folderCandidates = folderCandidates,
-                        naturalComparator = naturalComparator
-                    )
-                    books.add(book)
+                    val parsedFiles = mutableListOf<ScannedAudioFile>()
+
+                    for (fileDoc in looseAudioFiles) {
+                        if (isCancelled.get() || !currentCoroutineContext().isActive) {
+                            emit(ScanProgress.Cancelled)
+                            return@flow
+                        }
+                        current++
+                        emit(ScanProgress.Scanning("Scanning $current of $total", current, total))
+
+                        val parsed = parseAudioFileSafely(fileDoc, rootName)
+                        if (parsed != null) {
+                            parsedFiles.add(parsed)
+                        }
+                    }
+
+                    if (parsedFiles.isNotEmpty()) {
+                        val folderCandidates = findFolderImageCandidates(children)
+                        val book = assembleBookFromFiles(
+                            folderName = rootName,
+                            folderUri = rootDoc.uri.toString(),
+                            parsedFiles = parsedFiles,
+                            folderCandidates = folderCandidates,
+                            naturalComparator = naturalComparator
+                        )
+                        books.add(book)
+                    }
                 }
             }
 
@@ -219,37 +373,19 @@ class LibraryScanner @Inject constructor(
         }
     }
 
-    private fun processAudiobookFiles(
+    private fun assembleBookFromFiles(
         folderName: String,
         folderUri: String,
-        files: List<DocumentFile>,
+        parsedFiles: List<ScannedAudioFile>,
         folderCandidates: List<FolderImageCandidate> = emptyList(),
         naturalComparator: Comparator<String>
     ): ScannedBookPreview {
-        val parsedFiles = files.map { doc ->
-            val name = doc.name ?: "Audio"
-            val fallbackTitle = name.substringBeforeLast(".")
-            val meta = metadataParser.parseFileMetadata(doc.uri, fallbackTitle, folderName)
-            ScannedAudioFile(
-                name = name,
-                uri = doc.uri,
-                title = meta.title,
-                author = meta.author,
-                durationMs = meta.durationMs,
-                trackNumber = meta.trackNumber,
-                coverPath = meta.coverPath,
-                album = meta.album
-            )
-        }
-
-        // Sort files: by track number if all have tracks, else natural filename order
         val sortedFiles = if (parsedFiles.all { it.trackNumber != null }) {
             parsedFiles.sortedBy { it.trackNumber }
         } else {
             parsedFiles.sortedWith { f1, f2 -> naturalComparator.compare(f1.name, f2.name) }
         }
 
-        // Book title: resolve following fallback order: title tag -> album tag -> folder name -> file name
         val firstWithAuthor = sortedFiles.firstOrNull { it.author != "Unknown Author" }
         val author = firstWithAuthor?.author ?: "Unknown Author"
 
@@ -301,10 +437,6 @@ class LibraryScanner @Inject constructor(
             }
     }
 
-    private fun findAudioFilesDirect(dir: DocumentFile): List<DocumentFile> {
-        return dir.listFiles().filter { isAudioFile(it) }
-    }
-
     private fun findAudioFilesRecursive(dir: DocumentFile): List<DocumentFile> {
         val result = mutableListOf<DocumentFile>()
         for (item in dir.listFiles()) {
@@ -324,3 +456,4 @@ class LibraryScanner @Inject constructor(
         return supportedExtensions.contains(ext)
     }
 }
+

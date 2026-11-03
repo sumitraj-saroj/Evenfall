@@ -39,4 +39,28 @@ class RoomMigrationTest {
         assertTrue(executedSql.contains("ALTER TABLE `chapters` ADD COLUMN `titleOverride` TEXT DEFAULT NULL"))
         assertEquals(10, executedSql.size)
     }
+
+    @Test
+    fun testMigration2To3CreatesScanIssuesTable() {
+        val executedSql = mutableListOf<String>()
+        val db = Proxy.newProxyInstance(
+            SupportSQLiteDatabase::class.java.classLoader,
+            arrayOf(SupportSQLiteDatabase::class.java)
+        ) { _, method, args ->
+            if (method.name == "execSQL" && args != null && args.isNotEmpty()) {
+                executedSql.add(args[0] as String)
+            }
+            null
+        } as SupportSQLiteDatabase
+
+        EvenfallDatabase.MIGRATION_2_3.migrate(db)
+
+        assertEquals(2, EvenfallDatabase.MIGRATION_2_3.startVersion)
+        assertEquals(3, EvenfallDatabase.MIGRATION_2_3.endVersion)
+
+        assertEquals(1, executedSql.size)
+        assertTrue(executedSql[0].contains("CREATE TABLE IF NOT EXISTS `scan_issues`"))
+        assertTrue(executedSql[0].contains("`filePath` TEXT NOT NULL"))
+        assertTrue(executedSql[0].contains("`reason` TEXT NOT NULL"))
+    }
 }
