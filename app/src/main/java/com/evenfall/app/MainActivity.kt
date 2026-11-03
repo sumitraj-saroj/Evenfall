@@ -41,6 +41,7 @@ import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
 import com.evenfall.app.ui.screens.player.PlayerScreen
 import com.evenfall.app.ui.screens.scanlog.ScanLogScreen
 import com.evenfall.app.ui.screens.settings.SettingsScreen
+import com.evenfall.app.ui.screens.stats.StatsScreen
 import com.evenfall.app.ui.theme.ColorSchemeOption
 import com.evenfall.app.ui.theme.EvenfallTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -119,6 +120,9 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                     onOpenManageCollections = {
                         navController.navigate(Screen.ManageCollections.route)
                     },
+                    onOpenStats = {
+                        navController.navigate(Screen.Stats.route)
+                    },
                     hasMiniPlayer = showMiniPlayer
                 )
             }
@@ -172,6 +176,20 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                     },
                     onOpenManageCollections = {
                         navController.navigate(Screen.ManageCollections.route)
+                    },
+                    onOpenStats = {
+                        navController.navigate(Screen.Stats.route)
+                    }
+                )
+            }
+
+            composable(Screen.Stats.route) {
+                StatsScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onOpenBook = { bookId ->
+                        navController.navigate(Screen.Player.createRoute(bookId))
                     }
                 )
             }

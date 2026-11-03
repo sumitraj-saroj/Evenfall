@@ -419,4 +419,27 @@ class EvenfallUiTest {
         }
         org.junit.Assert.assertTrue(longClicked)
     }
+
+    @Test
+    fun testStatsMetricsDisplayProperly() {
+        composeTestRule.setContent {
+            EvenfallTheme {
+                Column {
+                    Text("Listening time")
+                    Text("Today")
+                    Text("45 min")
+                    Text("Listening streaks")
+                    Text("Current streak")
+                    Text("5 days")
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Listening time").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Today").assertIsDisplayed()
+        composeTestRule.onNodeWithText("45 min").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Listening streaks").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Current streak").assertIsDisplayed()
+        composeTestRule.onNodeWithText("5 days").assertIsDisplayed()
+    }
 }

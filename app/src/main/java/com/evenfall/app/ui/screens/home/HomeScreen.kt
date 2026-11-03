@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -103,6 +104,7 @@ fun HomeScreen(
     onOpenAddFolder: () -> Unit,
     onOpenFixLibrary: () -> Unit = {},
     onOpenManageCollections: () -> Unit = {},
+    onOpenStats: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     hasMiniPlayer: Boolean = false
 ) {
@@ -203,6 +205,17 @@ fun HomeScreen(
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = onOpenStats,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QueryStats,
+                            contentDescription = stringResource(R.string.action_stats),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
                     IconButton(
                         onClick = onOpenSettings,
