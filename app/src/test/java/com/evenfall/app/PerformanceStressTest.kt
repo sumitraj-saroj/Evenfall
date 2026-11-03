@@ -127,6 +127,11 @@ class PerformanceStressTest {
             )
         }
 
+        override suspend fun updateSeriesTag(id: Long, seriesName: String?, seriesOrder: Float?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(seriesName = seriesName, seriesOrder = seriesOrder)
+        }
+
         override suspend fun updateFinishedStatus(id: Long, finished: Boolean, finishedAt: Long?) {
             val book = booksMap[id] ?: return
             booksMap[id] = book.copy(isFinished = finished, finishedAt = finishedAt)

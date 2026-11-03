@@ -6,8 +6,10 @@ import com.evenfall.app.data.db.EvenfallDatabase
 import com.evenfall.app.data.db.dao.BookmarkDao
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
+import com.evenfall.app.data.db.dao.CollectionDao
 import com.evenfall.app.data.db.dao.HistoryDao
 import com.evenfall.app.data.db.dao.ScanIssueDao
+import com.evenfall.app.data.db.dao.SearchDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,7 +31,8 @@ object DatabaseModule {
         )
             .addMigrations(
                 EvenfallDatabase.MIGRATION_1_2,
-                EvenfallDatabase.MIGRATION_2_3
+                EvenfallDatabase.MIGRATION_2_3,
+                EvenfallDatabase.MIGRATION_3_4
             )
             .build()
     }
@@ -48,4 +51,10 @@ object DatabaseModule {
 
     @Provides
     fun provideScanIssueDao(database: EvenfallDatabase): ScanIssueDao = database.scanIssueDao()
+
+    @Provides
+    fun provideCollectionDao(database: EvenfallDatabase): CollectionDao = database.collectionDao()
+
+    @Provides
+    fun provideSearchDao(database: EvenfallDatabase): SearchDao = database.searchDao()
 }

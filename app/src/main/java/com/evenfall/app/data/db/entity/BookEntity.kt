@@ -34,6 +34,8 @@ data class BookEntity(
     val narratorOverride: String? = null,
     val seriesName: String? = null,
     val seriesOrder: Float? = null,
+    val seriesNameOverride: String? = null,
+    val seriesOrderOverride: Float? = null,
     val coverOverrideUri: String? = null,
     val finishedAt: Long? = null,
     val isUnavailable: Boolean = false
@@ -46,6 +48,12 @@ data class BookEntity(
 
     val displayNarrator: String?
         get() = narratorOverride?.takeIf { it.isNotBlank() } ?: narrator
+
+    val displaySeriesName: String?
+        get() = seriesNameOverride?.takeIf { it.isNotBlank() } ?: seriesName
+
+    val displaySeriesOrder: Float?
+        get() = seriesOrderOverride ?: seriesOrder
 
     val displayCoverUri: String?
         get() = coverOverrideUri ?: coverUri
