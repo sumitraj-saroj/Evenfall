@@ -67,6 +67,9 @@ class PerformanceStressTest {
         override fun getMostRecentlyPlayedBook(): Flow<BookEntity?> =
             MutableStateFlow(booksMap.values.maxByOrNull { it.lastPlayedTimestamp })
 
+        override suspend fun getMostRecentlyPlayedBookSync(): BookEntity? =
+            booksMap.values.maxByOrNull { it.lastPlayedTimestamp }
+
         override suspend fun updateUnavailableStatus(id: Long, isUnavailable: Boolean) {
             val book = booksMap[id] ?: return
             booksMap[id] = book.copy(isUnavailable = isUnavailable)

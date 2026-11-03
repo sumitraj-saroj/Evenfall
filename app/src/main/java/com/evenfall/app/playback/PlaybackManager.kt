@@ -39,6 +39,8 @@ import java.util.Calendar
 import javax.inject.Inject
 import com.evenfall.app.data.db.dao.ListeningSessionDao
 import com.evenfall.app.data.db.entity.ListeningSessionEntity
+import com.evenfall.app.service.EvenfallTileService
+import com.evenfall.app.shortcuts.EvenfallShortcutManager
 import javax.inject.Singleton
 
 @OptIn(UnstableApi::class)
@@ -231,6 +233,10 @@ class PlaybackManager @Inject constructor(
         })
     }
 
+    fun loadBook(book: BookEntity, autoPlay: Boolean = false) {
+        loadBook(book.id, autoPlay)
+    }
+
     fun loadBook(bookId: Long, autoPlay: Boolean = false) {
         scope.launch {
             val book = bookDao.getBookByIdSync(bookId) ?: return@launch
@@ -274,6 +280,8 @@ class PlaybackManager @Inject constructor(
             }
 
             applyEffectiveSettingsForBook(book)
+            EvenfallShortcutManager.updateShortcuts(context, book)
+            EvenfallTileService.requestTileUpdate(context)
 
             if (autoPlay) {
                 play()
@@ -331,6 +339,8 @@ class PlaybackManager @Inject constructor(
             }
 
             applyEffectiveSettingsForBook(book)
+            EvenfallShortcutManager.updateShortcuts(context, book)
+            EvenfallTileService.requestTileUpdate(context)
             saveCurrentPosition()
 
             if (autoPlay) {
@@ -406,6 +416,9 @@ class PlaybackManager @Inject constructor(
 
             exoPlayer.play()
             _playbackState.value = _playbackState.value.copy(isPlaying = true)
+
+            EvenfallTileService.requestTileUpdate(context)
+            EvenfallShortcutManager.updateShortcuts(context, book)
 
             val sessionRecord = sessionTracker.onPlay(
                 nowMs = System.currentTimeMillis(),
@@ -498,6 +511,7 @@ class PlaybackManager @Inject constructor(
         exoPlayer.pause()
         _playbackState.value = _playbackState.value.copy(isPlaying = false)
         saveCurrentPosition()
+        EvenfallTileService.requestTileUpdate(context)
 
         val sessionRecord = sessionTracker.onPause(
             nowMs = System.currentTimeMillis(),
