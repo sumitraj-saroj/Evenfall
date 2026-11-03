@@ -69,7 +69,8 @@ fun HomeScreen(
     onOpenBook: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAddFolder: () -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    hasMiniPlayer: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showSortMenu by remember { mutableStateOf(false) }
@@ -152,6 +153,9 @@ fun HomeScreen(
                     .padding(paddingValues)
                     .padding(horizontal = 20.dp)
                     .navigationBarsPadding(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    bottom = if (hasMiniPlayer) 88.dp else 24.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 // Greeting Header (in Serif font matching Image 1)

@@ -186,4 +186,42 @@ class EvenfallUiTest {
         }
         composeTestRule.onNodeWithText("The Hobbit").assertIsDisplayed()
     }
+
+    @Test
+    fun testMiniPlayerDisplaysBookInfoAndRespondsToActions() {
+        val testBook = BookEntity(
+            title = "Beyond the Horizon",
+            author = "Elena Rostova",
+            folderUri = "test://uri",
+            folderIdentifier = "test_horizon",
+            totalDurationMs = 5000000L,
+            fileCount = 10,
+            currentChapterIndex = 2
+        )
+        val state = com.evenfall.app.playback.PlaybackState(
+            currentBook = testBook,
+            isPlaying = false
+        )
+        var expanded = false
+        var playClicked = false
+
+        composeTestRule.setContent {
+            EvenfallTheme {
+                com.evenfall.app.ui.components.MiniPlayer(
+                    playbackState = state,
+                    book = testBook,
+                    onExpand = { expanded = true },
+                    onDismiss = {},
+                    onTogglePlayPause = { playClicked = true },
+                    onSkipBackward = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Beyond the Horizon").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("mini_player_play_pause").performClick()
+        org.junit.Assert.assertTrue(playClicked)
+        composeTestRule.onNodeWithTag("mini_player").performClick()
+        org.junit.Assert.assertTrue(expanded)
+    }
 }

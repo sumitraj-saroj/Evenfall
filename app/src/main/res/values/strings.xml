@@ -2,4 +2,9 @@
     <string name="app_name">Evenfall</string>
     <string name="media_notification_channel_name">Evenfall Playback</string>
     <string name="media_notification_channel_description">Playback controls for Evenfall audiobooks</string>
+    <string name="cd_mini_player">Mini player</string>
+    <string name="cd_skip_backward">Skip back</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_dismiss_mini_player">Dismiss mini player</string>
 </resources>

@@ -73,6 +73,18 @@ class PlaybackManager @Inject constructor(
     init {
         setupPlayerListener()
         startPositionTicker()
+        restoreLastPlayedBookIfAvailable()
+    }
+
+    private fun restoreLastPlayedBookIfAvailable() {
+        scope.launch {
+            try {
+                val mostRecent = bookDao.getMostRecentlyPlayedBook().first()
+                if (mostRecent != null && mostRecent.currentPositionMs > 0 && _playbackState.value.currentBook == null) {
+                    loadBook(mostRecent.id, autoPlay = false)
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun setupPlayerListener() {
@@ -109,7 +121,8 @@ class PlaybackManager @Inject constructor(
                 chapterPositionMs = book.chapterPositionMs,
                 chapterDurationMs = currentChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
                 totalPositionMs = book.currentPositionMs,
-                totalDurationMs = book.totalDurationMs
+                totalDurationMs = book.totalDurationMs,
+                isMiniPlayerDismissed = false
             )
 
             // Setup ExoPlayer MediaItem
@@ -199,6 +212,12 @@ class PlaybackManager @Inject constructor(
         } else {
             play()
         }
+    }
+
+    fun dismissMiniPlayer() {
+        pause()
+        saveCurrentPosition()
+        _playbackState.value = _playbackState.value.copy(isMiniPlayerDismissed = true)
     }
 
     fun skipForward() {
