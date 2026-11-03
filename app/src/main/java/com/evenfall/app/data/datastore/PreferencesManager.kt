@@ -51,6 +51,7 @@ class PreferencesManager @Inject constructor(
         val KEY_LIBRARY_FOLDERS = stringSetPreferencesKey("library_folders")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_COMPACT_PLAYER = booleanPreferencesKey("compact_player")
+        val KEY_AUTO_MARK_FINISHED = booleanPreferencesKey("auto_mark_finished")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -99,6 +100,8 @@ class PreferencesManager @Inject constructor(
 
     val compactPlayer: Flow<Boolean> = dataStore.data.map { it[KEY_COMPACT_PLAYER] ?: true }
 
+    val autoMarkFinished: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_MARK_FINISHED] ?: true }
+
     suspend fun setThemeMode(mode: ThemeMode) = dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     suspend fun setPureBlack(enabled: Boolean) = dataStore.edit { it[KEY_PURE_BLACK] = enabled }
     suspend fun setColorScheme(scheme: ColorSchemeOption) = dataStore.edit { it[KEY_COLOR_SCHEME] = scheme.name }
@@ -122,4 +125,5 @@ class PreferencesManager @Inject constructor(
     }
     suspend fun setOnboardingCompleted(completed: Boolean) = dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
     suspend fun setCompactPlayer(enabled: Boolean) = dataStore.edit { it[KEY_COMPACT_PLAYER] = enabled }
+    suspend fun setAutoMarkFinished(enabled: Boolean) = dataStore.edit { it[KEY_AUTO_MARK_FINISHED] = enabled }
 }

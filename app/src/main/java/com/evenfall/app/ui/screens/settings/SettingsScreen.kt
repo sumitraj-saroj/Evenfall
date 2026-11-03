@@ -51,6 +51,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.res.stringResource
+import com.evenfall.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -494,6 +496,27 @@ fun SettingsScreen(
                             Switch(
                                 checked = uiState.compactPlayer,
                                 onCheckedChange = viewModel::setCompactPlayer
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Auto-mark finished toggle (default on)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.auto_mark_finished_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.auto_mark_finished_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.autoMarkFinished,
+                                onCheckedChange = viewModel::setAutoMarkFinished
                             )
                         }
                     }

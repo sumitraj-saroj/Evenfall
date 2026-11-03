@@ -29,4 +29,8 @@
     <string name="finished_on">Finished on %1$s</string>
     <string name="folder_unavailable">Folder unavailable</string>
     <string name="cd_book_options">Options for %1$s</string>
+    <string name="auto_mark_finished_title">Auto-mark finished</string>
+    <string name="auto_mark_finished_desc">Mark books as finished when reaching 98% progress or end of the last chapter</string>
+    <string name="cd_swipe_mark_finished">Swipe to mark as finished</string>
+    <string name="cd_swipe_mark_not_started">Swipe to mark as not started</string>
 </resources>

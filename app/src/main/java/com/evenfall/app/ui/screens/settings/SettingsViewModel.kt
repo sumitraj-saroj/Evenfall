@@ -37,14 +37,16 @@ data class SettingsUiState(
     val defaultSpeed: Float = 1.0f,
     val libraryFolders: Set<String> = emptySet(),
     val backupStatusMessage: String? = null,
-    val compactPlayer: Boolean = true
+    val compactPlayer: Boolean = true,
+    val autoMarkFinished: Boolean = true
 )
 
 private data class ListeningPrefs(
     val skip: Int,
     val autoRewind: Boolean,
     val shake: Boolean,
-    val compact: Boolean
+    val compact: Boolean,
+    val autoMarkFinished: Boolean
 )
 
 @HiltViewModel
@@ -70,9 +72,10 @@ class SettingsViewModel @Inject constructor(
         preferencesManager.skipAmountSeconds,
         preferencesManager.autoRewindEnabled,
         preferencesManager.shakeToExtendEnabled,
-        preferencesManager.compactPlayer
-    ) { skip, autoRewind, shake, compact ->
-        ListeningPrefs(skip, autoRewind, shake, compact)
+        preferencesManager.compactPlayer,
+        preferencesManager.autoMarkFinished
+    ) { skip, autoRewind, shake, compact, autoMark ->
+        ListeningPrefs(skip, autoRewind, shake, compact, autoMark)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -89,6 +92,7 @@ class SettingsViewModel @Inject constructor(
             autoRewindEnabled = listening.autoRewind,
             shakeToExtendEnabled = listening.shake,
             compactPlayer = listening.compact,
+            autoMarkFinished = listening.autoMarkFinished,
             libraryFolders = folders
         )
     }.stateIn(
@@ -125,6 +129,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setCompactPlayer(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setCompactPlayer(enabled) }
+    }
+
+    fun setAutoMarkFinished(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setAutoMarkFinished(enabled) }
     }
 
     fun rescanLibrary() {

@@ -41,6 +41,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -613,6 +616,7 @@ fun ContinueListeningHeroCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrentBookRow(
     book: BookEntity,
@@ -628,126 +632,181 @@ fun CurrentBookRow(
     val timeLeftMs = (book.totalDurationMs - book.currentPositionMs).coerceAtLeast(0L)
     var showMenu by remember { mutableStateOf(false) }
 
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.Transparent,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BookCoverArt(
-                title = book.displayTitle,
-                author = book.displayAuthor,
-                coverPath = book.displayCoverUri,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(52.dp)
-            )
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = book.displayTitle,
-                    fontFamily = SerifFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = book.displayAuthor,
-                    fontFamily = SerifFont,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-
-                if (book.isUnavailable) {
-                    Text(
-                        text = stringResource(R.string.folder_unavailable),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else if (book.isFinished && book.finishedAt != null) {
-                    Text(
-                        text = stringResource(R.string.finished_on, TimeUtils.formatDate(book.finishedAt)),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.StartToEnd || dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                if (!book.isFinished) {
+                    onMarkFinished()
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        LinearProgressIndicator(
-                            progress = { progressFraction },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(4.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            strokeCap = StrokeCap.Round
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = TimeUtils.formatTimeLeft(timeLeftMs),
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    onMarkUnfinished()
                 }
             }
+            false
+        }
+    )
 
-            Box {
-                IconButton(
-                    onClick = { showMenu = true },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val alignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+            val icon = if (!book.isFinished) Icons.Default.Check else Icons.Default.Replay
+            val iconDesc = if (!book.isFinished) {
+                stringResource(R.string.mark_as_finished)
+            } else {
+                stringResource(R.string.mark_as_not_started)
+            }
+            val bgColor = if (!book.isFinished) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.tertiaryContainer
+            }
+            val tint = if (!book.isFinished) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onTertiaryContainer
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(bgColor)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = iconDesc,
+                    tint = tint,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BookCoverArt(
+                    title = book.displayTitle,
+                    author = book.displayAuthor,
+                    coverPath = book.displayCoverUri,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(52.dp)
+                )
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = book.displayTitle,
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.edit_details)) },
-                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                        onClick = {
-                            showMenu = false
-                            onEditDetails()
-                        }
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Text(
+                        text = book.displayAuthor,
+                        fontFamily = SerifFont,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    if (!book.isFinished) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.mark_as_finished)) },
-                            leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
-                            onClick = {
-                                showMenu = false
-                                onMarkFinished()
-                            }
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (book.isUnavailable) {
+                        Text(
+                            text = stringResource(R.string.folder_unavailable),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else if (book.isFinished && book.finishedAt != null) {
+                        Text(
+                            text = stringResource(R.string.finished_on, TimeUtils.formatDate(book.finishedAt)),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { progressFraction },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                strokeCap = StrokeCap.Round
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = TimeUtils.formatTimeLeft(timeLeftMs),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.mark_as_not_started)) },
-                            leadingIcon = { Icon(Icons.Default.Replay, contentDescription = null) },
+                            text = { Text(stringResource(R.string.edit_details)) },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                             onClick = {
                                 showMenu = false
-                                onMarkUnfinished()
+                                onEditDetails()
                             }
                         )
+                        if (!book.isFinished) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.mark_as_finished)) },
+                                leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onMarkFinished()
+                                }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.mark_as_not_started)) },
+                                leadingIcon = { Icon(Icons.Default.Replay, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onMarkUnfinished()
+                                }
+                            )
+                        }
                     }
                 }
             }
