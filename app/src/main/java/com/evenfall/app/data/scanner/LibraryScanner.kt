@@ -175,17 +175,20 @@ class LibraryScanner @Inject constructor(
                 bookDao.insert(newBook)
             }
 
-            // Save chapters
+            // Save chapters while PRESERVING existing chapter title overrides!
+            val existingChapters = chapterDao.getChaptersForBookSync(bookId).associateBy { it.chapterIndex }
             chapterDao.deleteChaptersForBook(bookId)
             val chapters = mutableListOf<ChapterEntity>()
             var runningOffset = 0L
 
             scanned.files.forEachIndexed { index, file ->
+                val prevOverride = existingChapters[index]?.titleOverride
                 chapters.add(
                     ChapterEntity(
                         bookId = bookId,
                         chapterIndex = index,
                         title = file.title.ifEmpty { "Chapter ${index + 1}" },
+                        titleOverride = prevOverride,
                         startMs = runningOffset,
                         durationMs = file.durationMs,
                         fileUri = file.uri.toString()

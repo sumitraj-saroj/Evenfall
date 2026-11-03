@@ -113,4 +113,11 @@ object TimeUtils {
             }
         }
     }
+
+    /**
+     * Formats date like "Nov 3, 2026" or "Sep 12, 2026".
+     */
+    fun formatDate(timestamp: Long): String {
+        return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
+    }
 }

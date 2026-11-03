@@ -3,6 +3,8 @@ package com.evenfall.app.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.evenfall.app.data.DemoDataSeeder
+import com.evenfall.app.data.db.dao.BookDao
+import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.repository.LibraryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,12 +33,15 @@ data class HomeUiState(
     val notStartedBooks: List<BookEntity> = emptyList(),
     val finishedBooks: List<BookEntity> = emptyList(),
     val isRefreshing: Boolean = false,
-    val sortOption: SortOption = SortOption.RECENTLY_PLAYED
+    val sortOption: SortOption = SortOption.RECENTLY_PLAYED,
+    val hasUnavailableBooks: Boolean = false
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
+    private val bookDao: BookDao,
+    private val chapterDao: ChapterDao,
     private val demoDataSeeder: DemoDataSeeder
 ) : ViewModel() {
 
@@ -66,14 +71,14 @@ class HomeViewModel @Inject constructor(
         } else {
             val q = query.trim().lowercase()
             allBooks.filter {
-                it.title.lowercase().contains(q) || it.author.lowercase().contains(q)
+                it.displayTitle.lowercase().contains(q) || it.displayAuthor.lowercase().contains(q)
             }
         }
 
         val sortedBooks = when (sort) {
             SortOption.RECENTLY_PLAYED -> filteredBooks.sortedByDescending { it.lastPlayedTimestamp }
-            SortOption.TITLE -> filteredBooks.sortedBy { it.title.lowercase() }
-            SortOption.AUTHOR -> filteredBooks.sortedBy { it.author.lowercase() }
+            SortOption.TITLE -> filteredBooks.sortedBy { it.displayTitle.lowercase() }
+            SortOption.AUTHOR -> filteredBooks.sortedBy { it.displayAuthor.lowercase() }
             SortOption.DURATION -> filteredBooks.sortedByDescending { it.totalDurationMs }
         }
 
@@ -83,6 +88,7 @@ class HomeViewModel @Inject constructor(
         val current = sortedBooks.filter { it.currentPositionMs > 0 && !it.isFinished && it.id != hero?.id }
         val notStarted = sortedBooks.filter { it.currentPositionMs == 0L && !it.isFinished && it.id != hero?.id }
         val finished = sortedBooks.filter { it.isFinished && it.id != hero?.id }
+        val hasUnavailable = allBooks.any { it.isUnavailable }
 
         HomeUiState(
             greeting = getTimeBasedGreeting(),
@@ -92,7 +98,8 @@ class HomeViewModel @Inject constructor(
             notStartedBooks = notStarted,
             finishedBooks = finished,
             isRefreshing = refreshing,
-            sortOption = sort
+            sortOption = sort,
+            hasUnavailableBooks = hasUnavailable
         )
     }.stateIn(
         scope = viewModelScope,
@@ -113,6 +120,64 @@ class HomeViewModel @Inject constructor(
             _isRefreshing.value = true
             libraryRepository.rescanLibrary()
             _isRefreshing.value = false
+        }
+    }
+
+    fun updateMetadataOverrides(
+        bookId: Long,
+        title: String,
+        author: String,
+        narrator: String?,
+        seriesName: String?,
+        seriesOrder: Float?,
+        coverUri: String?
+    ) {
+        viewModelScope.launch {
+            val book = bookDao.getBookByIdSync(bookId) ?: return@launch
+            val titleOv = if (title != book.title) title else null
+            val authorOv = if (author != book.author) author else null
+            val coverOv = if (coverUri != book.coverUri) coverUri else null
+
+            bookDao.updateMetadataOverrides(
+                id = bookId,
+                titleOverride = titleOv,
+                authorOverride = authorOv,
+                narratorOverride = narrator,
+                seriesName = seriesName,
+                seriesOrder = seriesOrder,
+                coverOverrideUri = coverOv
+            )
+        }
+    }
+
+    fun resetMetadataOverrides(bookId: Long) {
+        viewModelScope.launch {
+            bookDao.resetMetadataOverrides(bookId)
+            chapterDao.resetChapterOverridesForBook(bookId)
+        }
+    }
+
+    fun markAsFinished(bookId: Long) {
+        viewModelScope.launch {
+            bookDao.updateFinishedStatus(bookId, true, System.currentTimeMillis())
+        }
+    }
+
+    fun markAsUnfinished(bookId: Long, resetPosition: Boolean) {
+        viewModelScope.launch {
+            if (resetPosition) {
+                val book = bookDao.getBookByIdSync(bookId) ?: return@launch
+                bookDao.updatePlaybackPosition(
+                    id = bookId,
+                    totalPosMs = 0L,
+                    chapterIdx = 0,
+                    chapterPosMs = 0L,
+                    lastPlayed = System.currentTimeMillis()
+                )
+                bookDao.updateFinishedStatus(bookId, false, null)
+            } else {
+                bookDao.updateFinishedStatus(bookId, false, null)
+            }
         }
     }
 

@@ -27,5 +27,26 @@ data class BookEntity(
     val isFinished: Boolean = false,
     val fileCount: Int = 1,
     val dateAdded: Long = System.currentTimeMillis(),
-    val lastPlayedTimestamp: Long = 0L
-)
+    val lastPlayedTimestamp: Long = 0L,
+    val titleOverride: String? = null,
+    val authorOverride: String? = null,
+    val narrator: String? = null,
+    val narratorOverride: String? = null,
+    val seriesName: String? = null,
+    val seriesOrder: Float? = null,
+    val coverOverrideUri: String? = null,
+    val finishedAt: Long? = null,
+    val isUnavailable: Boolean = false
+) {
+    val displayTitle: String
+        get() = titleOverride?.takeIf { it.isNotBlank() } ?: title
+
+    val displayAuthor: String
+        get() = authorOverride?.takeIf { it.isNotBlank() } ?: author
+
+    val displayNarrator: String?
+        get() = narratorOverride?.takeIf { it.isNotBlank() } ?: narrator
+
+    val displayCoverUri: String?
+        get() = coverOverrideUri ?: coverUri
+}

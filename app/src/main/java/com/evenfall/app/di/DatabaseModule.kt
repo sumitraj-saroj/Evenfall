@@ -25,7 +25,9 @@ object DatabaseModule {
             context,
             EvenfallDatabase::class.java,
             "evenfall.db"
-        ).fallbackToDestructiveMigration().build()
+        )
+            .addMigrations(EvenfallDatabase.MIGRATION_1_2)
+            .build()
     }
 
     @Provides

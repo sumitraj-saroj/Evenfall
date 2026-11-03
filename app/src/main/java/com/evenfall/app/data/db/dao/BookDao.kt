@@ -64,6 +64,47 @@ interface BookDao {
     @Query("UPDATE books SET playbackSpeed = :speed WHERE id = :id")
     suspend fun updatePlaybackSpeed(id: Long, speed: Float)
 
+    @Query("""
+        UPDATE books 
+        SET titleOverride = :titleOverride,
+            authorOverride = :authorOverride,
+            narratorOverride = :narratorOverride,
+            seriesName = :seriesName,
+            seriesOrder = :seriesOrder,
+            coverOverrideUri = :coverOverrideUri
+        WHERE id = :id
+    """)
+    suspend fun updateMetadataOverrides(
+        id: Long,
+        titleOverride: String?,
+        authorOverride: String?,
+        narratorOverride: String?,
+        seriesName: String?,
+        seriesOrder: Float?,
+        coverOverrideUri: String?
+    )
+
+    @Query("""
+        UPDATE books
+        SET titleOverride = NULL,
+            authorOverride = NULL,
+            narratorOverride = NULL,
+            seriesName = NULL,
+            seriesOrder = NULL,
+            coverOverrideUri = NULL
+        WHERE id = :id
+    """)
+    suspend fun resetMetadataOverrides(id: Long)
+
+    @Query("UPDATE books SET isFinished = :finished, finishedAt = :finishedAt WHERE id = :id")
+    suspend fun updateFinishedStatus(id: Long, finished: Boolean, finishedAt: Long?)
+
+    @Query("UPDATE books SET isUnavailable = :isUnavailable WHERE id = :id")
+    suspend fun updateUnavailableStatus(id: Long, isUnavailable: Boolean)
+
+    @Query("UPDATE books SET isUnavailable = :isUnavailable WHERE folderUri = :folderUri")
+    suspend fun updateUnavailableStatusForFolder(folderUri: String, isUnavailable: Boolean)
+
     @Delete
     suspend fun delete(book: BookEntity)
 

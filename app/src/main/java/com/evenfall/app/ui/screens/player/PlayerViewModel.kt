@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.evenfall.app.data.datastore.PreferencesManager
+import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.BookmarkDao
+import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.entity.BookmarkEntity
 import com.evenfall.app.data.db.entity.BookmarkType
 import com.evenfall.app.playback.PlaybackManager
@@ -22,6 +24,8 @@ class PlayerViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     val playbackManager: PlaybackManager,
     private val bookmarkDao: BookmarkDao,
+    private val bookDao: BookDao,
+    private val chapterDao: ChapterDao,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
@@ -108,6 +112,50 @@ class PlayerViewModel @Inject constructor(
                     type = BookmarkType.BOOKMARK
                 )
             )
+        }
+    }
+
+    fun updateMetadataOverrides(
+        title: String,
+        author: String,
+        narrator: String?,
+        seriesName: String?,
+        seriesOrder: Float?,
+        coverUri: String?
+    ) {
+        val book = playbackState.value.currentBook ?: return
+        viewModelScope.launch {
+            val titleOv = if (title != book.title) title else null
+            val authorOv = if (author != book.author) author else null
+            val coverOv = if (coverUri != book.coverUri) coverUri else null
+
+            bookDao.updateMetadataOverrides(
+                id = book.id,
+                titleOverride = titleOv,
+                authorOverride = authorOv,
+                narratorOverride = narrator,
+                seriesName = seriesName,
+                seriesOrder = seriesOrder,
+                coverOverrideUri = coverOv
+            )
+            playbackManager.loadBook(book.id, autoPlay = false)
+        }
+    }
+
+    fun resetMetadataOverrides() {
+        val book = playbackState.value.currentBook ?: return
+        viewModelScope.launch {
+            bookDao.resetMetadataOverrides(book.id)
+            chapterDao.resetChapterOverridesForBook(book.id)
+            playbackManager.loadBook(book.id, autoPlay = false)
+        }
+    }
+
+    fun updateChapterTitle(chapterId: Long, newTitle: String) {
+        val book = playbackState.value.currentBook ?: return
+        viewModelScope.launch {
+            chapterDao.updateChapterTitleOverride(chapterId, newTitle.ifEmpty { null })
+            playbackManager.loadBook(book.id, autoPlay = false)
         }
     }
 }

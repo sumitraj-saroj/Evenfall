@@ -7,4 +7,26 @@
     <string name="cd_play">Play</string>
     <string name="cd_pause">Pause</string>
     <string name="cd_dismiss_mini_player">Dismiss mini player</string>
+    <string name="edit_details">Edit details</string>
+    <string name="edit_details_title">Edit audiobook details</string>
+    <string name="title_label">Title</string>
+    <string name="author_label">Author</string>
+    <string name="narrator_label">Narrator (optional)</string>
+    <string name="series_name_label">Series name (optional)</string>
+    <string name="series_number_label">Series number (optional)</string>
+    <string name="change_cover">Change cover photo</string>
+    <string name="reset_to_original">Reset to original</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="edit_chapter_title">Rename chapter</string>
+    <string name="chapter_title_label">Chapter title</string>
+    <string name="rename">Rename</string>
+    <string name="mark_as_finished">Mark as finished</string>
+    <string name="mark_as_not_started">Mark as not started</string>
+    <string name="reset_playback_position_prompt">Reset playback position to beginning?</string>
+    <string name="start_over">Start over</string>
+    <string name="keep_position">Keep position</string>
+    <string name="finished_on">Finished on %1$s</string>
+    <string name="folder_unavailable">Folder unavailable</string>
+    <string name="cd_book_options">Options for %1$s</string>
 </resources>

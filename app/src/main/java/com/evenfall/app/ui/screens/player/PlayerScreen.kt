@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
@@ -71,16 +72,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.evenfall.app.R
+import com.evenfall.app.data.db.entity.ChapterEntity
 import com.evenfall.app.playback.PlaybackState
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.CircularSkipButton
 import com.evenfall.app.ui.components.DashedSegmentedBar
+import com.evenfall.app.ui.components.EditBookDetailsDialog
+import com.evenfall.app.ui.components.EditChapterTitleDialog
 import com.evenfall.app.ui.components.MorphingPlayPauseButton
 import com.evenfall.app.ui.components.WavyProgressLine
 import com.evenfall.app.ui.theme.SerifFont
@@ -102,7 +108,7 @@ fun PlayerScreen(
     val chapter = state.currentChapter
 
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val bookColors = PlayerThemeExtractor.getColorsForBook(book?.title ?: "Evenfall", isDark)
+    val bookColors = PlayerThemeExtractor.getColorsForBook(book?.displayTitle ?: "Evenfall", isDark)
 
     var showChapterSheet by remember { mutableStateOf(false) }
     var showSleepSheet by remember { mutableStateOf(false) }
@@ -110,6 +116,8 @@ fun PlayerScreen(
     var showPlaybackOptionsSheet by remember { mutableStateOf(false) }
     var showVolumeBoostSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showEditDetailsDialog by remember { mutableStateOf(false) }
+    var editingChapter by remember { mutableStateOf<ChapterEntity?>(null) }
 
     // Auto-dismiss undo seek chip after 8 seconds or when tapped
     var showUndoChip by remember { mutableStateOf(false) }
@@ -227,6 +235,14 @@ fun PlayerScreen(
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_details)) },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        showEditDetailsDialog = true
+                                        showOverflowMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Playback options") },
                                     leadingIcon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
                                     onClick = {
@@ -257,9 +273,9 @@ fun PlayerScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         BookCoverArt(
-                            title = book?.title ?: "Evenfall",
-                            author = book?.author ?: "",
-                            coverPath = book?.coverUri,
+                            title = book?.displayTitle ?: "Evenfall",
+                            author = book?.displayAuthor ?: "",
+                            coverPath = book?.displayCoverUri,
                             shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.size(160.dp)
                         )
@@ -406,7 +422,7 @@ fun PlayerScreen(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = ch.title,
+                                        text = ch.displayTitle,
                                         fontSize = 14.sp,
                                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -417,6 +433,18 @@ fun PlayerScreen(
                                         text = TimeUtils.formatDurationWords(ch.durationMs),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { editingChapter = ch },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = stringResource(R.string.edit_chapter_title),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -670,6 +698,30 @@ fun PlayerScreen(
                 }
             }
         }
+
+        if (showEditDetailsDialog && book != null) {
+            EditBookDetailsDialog(
+                book = book,
+                onDismiss = { showEditDetailsDialog = false },
+                onSave = { title, author, narrator, seriesName, seriesOrder, coverUri ->
+                    viewModel.updateMetadataOverrides(title, author, narrator, seriesName, seriesOrder, coverUri)
+                },
+                onResetToOriginal = {
+                    viewModel.resetMetadataOverrides()
+                }
+            )
+        }
+
+        if (editingChapter != null) {
+            EditChapterTitleDialog(
+                currentTitle = editingChapter!!.displayTitle,
+                onDismiss = { editingChapter = null },
+                onConfirm = { newTitle ->
+                    viewModel.updateChapterTitle(editingChapter!!.id, newTitle)
+                    editingChapter = null
+                }
+            )
+        }
     }
 }
 
@@ -707,9 +759,9 @@ private fun PlayerContent(
     if (showCover) {
         // 1. Cover Art (15-20% smaller than previous 255dp, ~205dp with more breathing room)
         BookCoverArt(
-            title = book?.title ?: "Evenfall",
-            author = book?.author ?: "",
-            coverPath = book?.coverUri,
+            title = book?.displayTitle ?: "Evenfall",
+            author = book?.displayAuthor ?: "",
+            coverPath = book?.displayCoverUri,
             shape = RoundedCornerShape(22.dp),
             modifier = Modifier.size(if (compactPlayer) 205.dp else 240.dp)
         )
@@ -720,7 +772,7 @@ private fun PlayerContent(
     // 2. Title and Author: serif font, one line ellipsized, smaller size
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = book?.title ?: "Untitled",
+            text = book?.displayTitle ?: "Untitled",
             fontFamily = SerifFont,
             fontSize = if (isLandscape) 17.sp else (if (compactPlayer) 20.sp else 23.sp),
             fontWeight = FontWeight.Bold,
@@ -732,7 +784,7 @@ private fun PlayerContent(
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = book?.author ?: "Unknown Author",
+            text = book?.displayAuthor ?: "Unknown Author",
             fontFamily = SerifFont,
             fontSize = if (isLandscape) 12.sp else 14.sp,
             color = bookColors.onBackgroundMuted,
@@ -771,7 +823,7 @@ private fun PlayerContent(
                         fontWeight = FontWeight.SemiBold,
                         color = bookColors.onBackground
                     )
-                    val chTitle = chapter?.title
+                    val chTitle = chapter?.displayTitle
                     if (!chTitle.isNullOrBlank() && !chTitle.equals("Chapter ${currentChapterIdx + 1}", ignoreCase = true)) {
                         Spacer(modifier = Modifier.height(1.dp))
                         Text(
