@@ -21,18 +21,25 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -51,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,12 +66,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.evenfall.app.R
+import com.evenfall.app.data.backup.RestoreMergeMode
 import com.evenfall.app.data.datastore.ScanMode
 import com.evenfall.app.data.scanner.ScannedBookPreview
-import com.evenfall.app.ui.theme.CookieShape
-import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.components.WavyProgressLine
+import com.evenfall.app.ui.theme.CookieShape
+import com.evenfall.app.ui.theme.SerifFont
 import com.evenfall.app.util.TimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +85,11 @@ fun OnboardingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scanMode by viewModel.scanMode.collectAsState()
+    val pendingRestoreBackup by viewModel.pendingRestoreBackup.collectAsState()
+    val restoreAnalysis by viewModel.restoreAnalysis.collectAsState()
+    val restoreMergeMode by viewModel.restoreMergeMode.collectAsState()
+    val restoreMessage by viewModel.restoreMessage.collectAsState()
+    val isRestoring by viewModel.isRestoring.collectAsState()
     var showScanModeSheet by remember { mutableStateOf(false) }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
@@ -82,6 +97,14 @@ fun OnboardingScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.onFolderSelected(uri)
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.onRestoreBackupSelected(uri)
         }
     }
 
@@ -129,10 +152,21 @@ fun OnboardingScreen(
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
-                                )
+                                ),
+                                enabled = !isRestoring
                             ) {
+                                if (isRestoring) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                val label = if (pendingRestoreBackup != null) {
+                                    val matchedCount = restoreAnalysis?.matched?.size ?: 0
+                                    "Restore & Add ${state.books.size} books ($matchedCount matched)"
+                                } else {
+                                    "Add ${state.books.size} books"
+                                }
                                 Text(
-                                    text = "Add ${state.books.size} books",
+                                    text = label,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -170,6 +204,24 @@ fun OnboardingScreen(
                                     fontWeight = FontWeight.Medium
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            OutlinedButton(
+                                onClick = { restoreBackupLauncher.launch(arrayOf("application/json", "*/*")) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(28.dp)
+                            ) {
+                                Icon(Icons.Default.Replay, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.restore_from_backup),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
 
@@ -203,22 +255,91 @@ fun OnboardingScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                if (restoreMessage != null && pendingRestoreBackup != null && uiState !is OnboardingUiState.Found) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = restoreMessage ?: "",
+                            modifier = Modifier.padding(14.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
                 when (val state = uiState) {
                     is OnboardingUiState.Found -> {
                         Text(
-                            text = "We found ${state.books.size} books",
+                            text = if (pendingRestoreBackup != null) "Restore & Add books" else "We found ${state.books.size} books",
                             style = MaterialTheme.typography.displaySmall,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Every folder or file in ${state.folderName} is a book",
+                            text = if (pendingRestoreBackup != null) {
+                                "${restoreAnalysis?.matched?.size ?: 0} of ${pendingRestoreBackup?.books?.size ?: 0} backup books matched to your library"
+                            } else {
+                                "Every folder or file in ${state.folderName} is a book"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (pendingRestoreBackup != null) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        stringResource(R.string.restore_merge_mode_title),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { viewModel.setRestoreMergeMode(RestoreMergeMode.MERGE) },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = restoreMergeMode == RestoreMergeMode.MERGE,
+                                            onClick = { viewModel.setRestoreMergeMode(RestoreMergeMode.MERGE) }
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.restore_mode_merge), fontSize = 13.sp)
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_BACKUP) },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = restoreMergeMode == RestoreMergeMode.KEEP_BACKUP,
+                                            onClick = { viewModel.setRestoreMergeMode(RestoreMergeMode.KEEP_BACKUP) }
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.restore_mode_keep_backup), fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
 
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -355,6 +476,19 @@ fun OnboardingScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
+        }
+
+        if (restoreMessage != null && pendingRestoreBackup == null) {
+            AlertDialog(
+                onDismissRequest = viewModel::clearRestoreMessage,
+                title = { Text("Restore", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                text = { Text(restoreMessage ?: "") },
+                confirmButton = {
+                    TextButton(onClick = viewModel::clearRestoreMessage) {
+                        Text("OK")
+                    }
+                }
+            )
         }
     }
 }
