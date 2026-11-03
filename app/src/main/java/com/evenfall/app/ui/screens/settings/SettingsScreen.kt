@@ -61,6 +61,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -668,6 +669,38 @@ fun SettingsScreen(
                                 checked = uiState.hapticFeedbackEnabled,
                                 onCheckedChange = viewModel::setHapticFeedbackEnabled
                             )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Reset Hints and Tips Row
+                        var hintsResetDone by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.reset_tips_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (hintsResetDone) stringResource(R.string.reset_tips_done) else stringResource(R.string.reset_tips_desc),
+                                    fontSize = 12.sp,
+                                    color = if (hintsResetDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.resetTips()
+                                    hintsResetDone = true
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(stringResource(R.string.reset_tips_action), fontSize = 12.sp)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))

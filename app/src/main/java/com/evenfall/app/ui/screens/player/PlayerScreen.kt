@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.ui.input.pointer.pointerInput
+import com.evenfall.app.ui.components.FirstRunHintCard
 import com.evenfall.app.ui.components.QuickSkipAdjustDialog
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -136,6 +137,8 @@ fun PlayerScreen(
     var currentBookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var editingChapter by remember { mutableStateOf<ChapterEntity?>(null) }
     val haptics = com.evenfall.app.ui.util.rememberEvenfallHaptics()
+    val hintLongPressSkipShown by viewModel.hintLongPressSkipShown.collectAsState()
+    val hintBookmarkShown by viewModel.hintBookmarkShown.collectAsState()
 
     // Auto-dismiss undo seek chip after 8 seconds or when tapped
     var showUndoChip by remember { mutableStateOf(false) }
@@ -362,21 +365,34 @@ fun PlayerScreen(
                             },
                             onPreviousChapter = viewModel::previousChapter,
                             onSkipBackward = viewModel::skipBackward,
-                            onLongSkipBackward = { quickSkipDialogData = false to state.skipBackSeconds },
+                            onLongSkipBackward = {
+                                viewModel.dismissHintLongPressSkip()
+                                quickSkipDialogData = false to state.skipBackSeconds
+                            },
                             onTogglePlayPause = viewModel::togglePlayPause,
                             onSkipForward = viewModel::skipForward,
-                            onLongSkipForward = { quickSkipDialogData = true to state.skipForwardSeconds },
+                            onLongSkipForward = {
+                                viewModel.dismissHintLongPressSkip()
+                                quickSkipDialogData = true to state.skipForwardSeconds
+                            },
                             onNextChapter = viewModel::nextChapter,
                             onSleepClick = { showSleepSheet = true },
                             onSpeedClick = { showSpeedSheet = true },
-                            onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
+                            onBookmarksClick = {
+                                viewModel.dismissHintBookmark()
+                                book?.let { onOpenBookmarks(it.id) }
+                            },
                             onMoreClick = { showPlaybackOptionsSheet = true },
                             onSilenceToggle = viewModel::toggleSilenceSkipping,
                             onVolumeBoostClick = { showVolumeBoostSheet = true },
                             onDismissWelcomeBack = viewModel::dismissWelcomeBack,
                             onRewindToChapterStart = viewModel::rewindToChapterStart,
                             onDismissBedtimePrompt = viewModel::dismissBedtimePrompt,
-                            onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt
+                            onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt,
+                            hintLongPressSkipVisible = !hintLongPressSkipShown,
+                            onDismissHintLongPressSkip = viewModel::dismissHintLongPressSkip,
+                            hintBookmarkVisible = !hintBookmarkShown && state.chapterPositionMs > 5_000L,
+                            onDismissHintBookmark = viewModel::dismissHintBookmark
                         )
                     }
                 }
@@ -416,21 +432,34 @@ fun PlayerScreen(
                         },
                         onPreviousChapter = viewModel::previousChapter,
                         onSkipBackward = viewModel::skipBackward,
-                        onLongSkipBackward = { quickSkipDialogData = false to state.skipBackSeconds },
+                        onLongSkipBackward = {
+                            viewModel.dismissHintLongPressSkip()
+                            quickSkipDialogData = false to state.skipBackSeconds
+                        },
                         onTogglePlayPause = viewModel::togglePlayPause,
                         onSkipForward = viewModel::skipForward,
-                        onLongSkipForward = { quickSkipDialogData = true to state.skipForwardSeconds },
+                        onLongSkipForward = {
+                            viewModel.dismissHintLongPressSkip()
+                            quickSkipDialogData = true to state.skipForwardSeconds
+                        },
                         onNextChapter = viewModel::nextChapter,
                         onSleepClick = { showSleepSheet = true },
                         onSpeedClick = { showSpeedSheet = true },
-                        onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
+                        onBookmarksClick = {
+                            viewModel.dismissHintBookmark()
+                            book?.let { onOpenBookmarks(it.id) }
+                        },
                         onMoreClick = { showPlaybackOptionsSheet = true },
                         onSilenceToggle = viewModel::toggleSilenceSkipping,
                         onVolumeBoostClick = { showVolumeBoostSheet = true },
                         onDismissWelcomeBack = viewModel::dismissWelcomeBack,
                         onRewindToChapterStart = viewModel::rewindToChapterStart,
                         onDismissBedtimePrompt = viewModel::dismissBedtimePrompt,
-                        onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt
+                        onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt,
+                        hintLongPressSkipVisible = !hintLongPressSkipShown,
+                        onDismissHintLongPressSkip = viewModel::dismissHintLongPressSkip,
+                        hintBookmarkVisible = !hintBookmarkShown && state.chapterPositionMs > 5_000L,
+                        onDismissHintBookmark = viewModel::dismissHintBookmark
                     )
                 }
             }
@@ -1147,7 +1176,11 @@ private fun PlayerContent(
     onDismissWelcomeBack: () -> Unit = {},
     onRewindToChapterStart: () -> Unit = {},
     onDismissBedtimePrompt: () -> Unit = {},
-    onAcceptBedtimePrompt: () -> Unit = {}
+    onAcceptBedtimePrompt: () -> Unit = {},
+    hintLongPressSkipVisible: Boolean = false,
+    onDismissHintLongPressSkip: () -> Unit = {},
+    hintBookmarkVisible: Boolean = false,
+    onDismissHintBookmark: () -> Unit = {}
 ) {
     if (showCover) {
         // 1. Cover Art with double-tap gesture to play/pause
@@ -1527,6 +1560,15 @@ private fun PlayerContent(
 
     Spacer(modifier = Modifier.height(if (isLandscape) 4.dp else 18.dp))
 
+    FirstRunHintCard(
+        text = stringResource(R.string.hint_long_press_skip),
+        visible = hintLongPressSkipVisible,
+        onDismiss = onDismissHintLongPressSkip,
+        containerColor = bookColors.cardBackground,
+        contentColor = bookColors.onBackground,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+    )
+
     // 6. Transport Controls: Prev Chapter, Skip Back, Play/Pause, Skip Forward, Next Chapter
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1604,6 +1646,15 @@ private fun PlayerContent(
 
     // Spacing between controls and toolbar (at least 24dp in portrait, compact in landscape)
     Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 28.dp))
+
+    FirstRunHintCard(
+        text = stringResource(R.string.hint_bookmark),
+        visible = hintBookmarkVisible,
+        onDismiss = onDismissHintBookmark,
+        containerColor = bookColors.cardBackground,
+        contentColor = bookColors.onBackground,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+    )
 
     // 7. Bottom Toolbar
     if (compactPlayer) {

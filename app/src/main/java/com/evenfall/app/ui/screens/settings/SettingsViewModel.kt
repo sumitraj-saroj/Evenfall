@@ -534,4 +534,10 @@ class SettingsViewModel @Inject constructor(
             onComplete(count)
         }
     }
+
+    fun resetTips() {
+        viewModelScope.launch {
+            preferencesManager.resetFirstRunHints()
+        }
+    }
 }
