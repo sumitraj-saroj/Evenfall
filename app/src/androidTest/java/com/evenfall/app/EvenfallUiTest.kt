@@ -33,7 +33,11 @@ import com.evenfall.app.data.repository.BookmarkSearchResult
 import com.evenfall.app.data.repository.ChapterSearchResult
 import com.evenfall.app.data.repository.SearchResults
 import com.evenfall.app.ui.components.MorphingPlayPauseButton
+import com.evenfall.app.ui.components.CircularSkipButton
+import com.evenfall.app.ui.components.QuickSkipAdjustDialog
 import com.evenfall.app.ui.components.SortFilterBottomSheet
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import com.evenfall.app.ui.screens.home.ContinueListeningHeroCard
 import com.evenfall.app.ui.screens.home.FilterState
 import com.evenfall.app.ui.screens.home.SearchResultsGroupedView
@@ -372,5 +376,47 @@ class EvenfallUiTest {
         // Click bookmark result and verify navigation callback
         composeTestRule.onNodeWithText("Honor is Dead").performClick()
         org.junit.Assert.assertEquals(201L, openedBookmark?.bookmark?.id)
+    }
+
+    @Test
+    fun testQuickSkipAdjustDialogChangesSeconds() {
+        var currentSeconds = 20
+        composeTestRule.setContent {
+            EvenfallTheme {
+                QuickSkipAdjustDialog(
+                    isForward = true,
+                    currentSeconds = currentSeconds,
+                    onSecondsChange = { currentSeconds = it },
+                    onDismissRequest = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Skip Forward Amount").assertIsDisplayed()
+        composeTestRule.onNodeWithText("20 seconds").assertIsDisplayed()
+        composeTestRule.onNodeWithText("45s").performClick()
+        org.junit.Assert.assertEquals(45, currentSeconds)
+    }
+
+    @Test
+    fun testCircularSkipButtonLongClickTriggersCallback() {
+        var clicked = false
+        var longClicked = false
+        composeTestRule.setContent {
+            EvenfallTheme {
+                CircularSkipButton(
+                    seconds = 30,
+                    isForward = true,
+                    onClick = { clicked = true },
+                    onLongClick = { longClicked = true }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Forward 30 seconds").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Forward 30 seconds").performTouchInput {
+            longClick()
+        }
+        org.junit.Assert.assertTrue(longClicked)
     }
 }

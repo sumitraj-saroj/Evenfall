@@ -151,6 +151,84 @@ class PerformanceStressTest {
         override suspend fun delete(book: BookEntity) {
             booksMap.remove(book.id)
         }
+
+        override suspend fun updatePlaybackOverrides(
+            id: Long,
+            speed: Float?,
+            skipBack: Int?,
+            skipForward: Int?,
+            silenceSkipping: Boolean?,
+            volumeBoost: Float?,
+            voiceBoostPreset: String?,
+            monoDownmix: Boolean?,
+            loudnessNormalization: Boolean?
+        ) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(
+                speedOverride = speed,
+                skipBackSecondsOverride = skipBack,
+                skipForwardSecondsOverride = skipForward,
+                silenceSkippingOverride = silenceSkipping,
+                volumeBoostOverride = volumeBoost,
+                voiceBoostPresetOverride = voiceBoostPreset,
+                monoDownmixOverride = monoDownmix,
+                loudnessNormalizationOverride = loudnessNormalization
+            )
+        }
+
+        override suspend fun resetPlaybackOverrides(id: Long) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(
+                speedOverride = null,
+                skipBackSecondsOverride = null,
+                skipForwardSecondsOverride = null,
+                silenceSkippingOverride = null,
+                volumeBoostOverride = null,
+                voiceBoostPresetOverride = null,
+                monoDownmixOverride = null,
+                loudnessNormalizationOverride = null
+            )
+        }
+
+        override suspend fun updateSpeedOverride(id: Long, speed: Float?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(speedOverride = speed)
+        }
+
+        override suspend fun updateSkipBackOverride(id: Long, seconds: Int?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(skipBackSecondsOverride = seconds)
+        }
+
+        override suspend fun updateSkipForwardOverride(id: Long, seconds: Int?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(skipForwardSecondsOverride = seconds)
+        }
+
+        override suspend fun updateSilenceSkippingOverride(id: Long, enabled: Boolean?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(silenceSkippingOverride = enabled)
+        }
+
+        override suspend fun updateVolumeBoostOverride(id: Long, level: Float?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(volumeBoostOverride = level)
+        }
+
+        override suspend fun updateVoiceBoostPresetOverride(id: Long, preset: String?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(voiceBoostPresetOverride = preset)
+        }
+
+        override suspend fun updateMonoDownmixOverride(id: Long, enabled: Boolean?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(monoDownmixOverride = enabled)
+        }
+
+        override suspend fun updateLoudnessNormalizationOverride(id: Long, enabled: Boolean?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(loudnessNormalizationOverride = enabled)
+        }
     }
 
     private class FakeChapterDao : ChapterDao {

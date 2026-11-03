@@ -111,6 +111,16 @@ class SearchFtsTest {
         override suspend fun updateFinishedStatus(id: Long, isFinished: Boolean, finishedAt: Long?) {}
         override suspend fun updateSeriesTag(id: Long, seriesName: String?, seriesOrder: Float?) {}
         override suspend fun delete(book: BookEntity) { booksMap.remove(book.id) }
+        override suspend fun updatePlaybackOverrides(id: Long, speed: Float?, skipBack: Int?, skipForward: Int?, silenceSkipping: Boolean?, volumeBoost: Float?, voiceBoostPreset: String?, monoDownmix: Boolean?, loudnessNormalization: Boolean?) {}
+        override suspend fun resetPlaybackOverrides(id: Long) {}
+        override suspend fun updateSpeedOverride(id: Long, speed: Float?) {}
+        override suspend fun updateSkipBackOverride(id: Long, seconds: Int?) {}
+        override suspend fun updateSkipForwardOverride(id: Long, seconds: Int?) {}
+        override suspend fun updateSilenceSkippingOverride(id: Long, enabled: Boolean?) {}
+        override suspend fun updateVolumeBoostOverride(id: Long, level: Float?) {}
+        override suspend fun updateVoiceBoostPresetOverride(id: Long, preset: String?) {}
+        override suspend fun updateMonoDownmixOverride(id: Long, enabled: Boolean?) {}
+        override suspend fun updateLoudnessNormalizationOverride(id: Long, enabled: Boolean?) {}
     }
 
     private class FakeChapterDao : ChapterDao {

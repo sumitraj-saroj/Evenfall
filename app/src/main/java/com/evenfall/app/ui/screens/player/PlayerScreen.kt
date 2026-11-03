@@ -27,6 +27,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.ui.input.pointer.pointerInput
+import com.evenfall.app.ui.components.QuickSkipAdjustDialog
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -105,6 +112,7 @@ fun PlayerScreen(
     val state by viewModel.playbackState.collectAsState()
     val skipSeconds by viewModel.skipSeconds.collectAsState()
     val compactPlayer by viewModel.compactPlayer.collectAsState()
+    val playerGesturesEnabled by viewModel.playerGesturesEnabled.collectAsState()
     val book = state.currentBook
     val chapter = state.currentChapter
 
@@ -119,6 +127,7 @@ fun PlayerScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showEditDetailsDialog by remember { mutableStateOf(false) }
     var showAddToCollectionDialog by remember { mutableStateOf(false) }
+    var quickSkipDialogData by remember { mutableStateOf<Pair<Boolean, Int>?>(null) }
     val allCollections by viewModel.allCollections.collectAsState(initial = emptyList())
     var currentBookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var editingChapter by remember { mutableStateOf<ChapterEntity?>(null) }
@@ -289,13 +298,25 @@ fun PlayerScreen(
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
-                        BookCoverArt(
-                            title = book?.displayTitle ?: "Evenfall",
-                            author = book?.displayAuthor ?: "",
-                            coverPath = book?.displayCoverUri,
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.size(160.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(160.dp)
+                                .pointerInput(playerGesturesEnabled) {
+                                    if (playerGesturesEnabled) {
+                                        detectTapGestures(
+                                            onDoubleTap = { viewModel.togglePlayPause() }
+                                        )
+                                    }
+                                }
+                        ) {
+                            BookCoverArt(
+                                title = book?.displayTitle ?: "Evenfall",
+                                author = book?.displayAuthor ?: "",
+                                coverPath = book?.displayCoverUri,
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -314,6 +335,7 @@ fun PlayerScreen(
                             state = state,
                             skipSeconds = skipSeconds,
                             compactPlayer = compactPlayer,
+                            playerGesturesEnabled = playerGesturesEnabled,
                             bookColors = bookColors,
                             isDark = isDark,
                             hasMultipleChapters = hasMultipleChapters,
@@ -331,15 +353,21 @@ fun PlayerScreen(
                             },
                             onPreviousChapter = viewModel::previousChapter,
                             onSkipBackward = viewModel::skipBackward,
+                            onLongSkipBackward = { quickSkipDialogData = false to state.skipBackSeconds },
                             onTogglePlayPause = viewModel::togglePlayPause,
                             onSkipForward = viewModel::skipForward,
+                            onLongSkipForward = { quickSkipDialogData = true to state.skipForwardSeconds },
                             onNextChapter = viewModel::nextChapter,
                             onSleepClick = { showSleepSheet = true },
                             onSpeedClick = { showSpeedSheet = true },
                             onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
                             onMoreClick = { showPlaybackOptionsSheet = true },
                             onSilenceToggle = viewModel::toggleSilenceSkipping,
-                            onVolumeBoostClick = { showVolumeBoostSheet = true }
+                            onVolumeBoostClick = { showVolumeBoostSheet = true },
+                            onDismissWelcomeBack = viewModel::dismissWelcomeBack,
+                            onRewindToChapterStart = viewModel::rewindToChapterStart,
+                            onDismissBedtimePrompt = viewModel::dismissBedtimePrompt,
+                            onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt
                         )
                     }
                 }
@@ -360,6 +388,7 @@ fun PlayerScreen(
                         state = state,
                         skipSeconds = skipSeconds,
                         compactPlayer = compactPlayer,
+                        playerGesturesEnabled = playerGesturesEnabled,
                         bookColors = bookColors,
                         isDark = isDark,
                         hasMultipleChapters = hasMultipleChapters,
@@ -375,15 +404,21 @@ fun PlayerScreen(
                         },
                         onPreviousChapter = viewModel::previousChapter,
                         onSkipBackward = viewModel::skipBackward,
+                        onLongSkipBackward = { quickSkipDialogData = false to state.skipBackSeconds },
                         onTogglePlayPause = viewModel::togglePlayPause,
                         onSkipForward = viewModel::skipForward,
+                        onLongSkipForward = { quickSkipDialogData = true to state.skipForwardSeconds },
                         onNextChapter = viewModel::nextChapter,
                         onSleepClick = { showSleepSheet = true },
                         onSpeedClick = { showSpeedSheet = true },
                         onBookmarksClick = { book?.let { onOpenBookmarks(it.id) } },
                         onMoreClick = { showPlaybackOptionsSheet = true },
                         onSilenceToggle = viewModel::toggleSilenceSkipping,
-                        onVolumeBoostClick = { showVolumeBoostSheet = true }
+                        onVolumeBoostClick = { showVolumeBoostSheet = true },
+                        onDismissWelcomeBack = viewModel::dismissWelcomeBack,
+                        onRewindToChapterStart = viewModel::rewindToChapterStart,
+                        onDismissBedtimePrompt = viewModel::dismissBedtimePrompt,
+                        onAcceptBedtimePrompt = viewModel::acceptBedtimePrompt
                     )
                 }
             }
@@ -471,7 +506,24 @@ fun PlayerScreen(
             }
         }
 
-        // Playback Options Bottom Sheet (Silence Skipping + Volume Boost)
+        // Quick Skip Amount Adjustment Dialog
+        quickSkipDialogData?.let { (isForward, sec) ->
+            QuickSkipAdjustDialog(
+                isForward = isForward,
+                currentSeconds = sec,
+                onSecondsChange = { newSec ->
+                    quickSkipDialogData = isForward to newSec
+                    if (isForward) {
+                        viewModel.setBookSkipForwardOverride(newSec)
+                    } else {
+                        viewModel.setBookSkipBackOverride(newSec)
+                    }
+                },
+                onDismissRequest = { quickSkipDialogData = null }
+            )
+        }
+
+        // Playback Options Bottom Sheet (Grouped: This book, Voice, Advanced)
         if (showPlaybackOptionsSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showPlaybackOptionsSheet = false },
@@ -480,7 +532,9 @@ fun PlayerScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp)
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp)
+                        .verticalScroll(rememberScrollState())
                         .navigationBarsPadding()
                 ) {
                     Text(
@@ -490,34 +544,162 @@ fun PlayerScreen(
                     )
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Silence skipping toggle
+                    // SECTION 1: THIS BOOK
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.this_book_section),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (state.hasCustomPlaybackOverrides) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = if (state.hasCustomPlaybackOverrides) stringResource(R.string.custom_overrides_active) else stringResource(R.string.using_defaults),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (state.hasCustomPlaybackOverrides) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (state.hasCustomPlaybackOverrides) {
+                            TextButton(
+                                onClick = { viewModel.resetBookPlaybackOverrides() },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.reset_to_defaults),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Book Speed override
+                    val currentSpeedOverride = state.currentBook?.speedOverride
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.book_speed),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (currentSpeedOverride != null) "${String.format(Locale.US, "%.2f", currentSpeedOverride)}x (Custom)" else "${String.format(Locale.US, "%.2f", state.playbackSpeed)}x (Default)",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (currentSpeedOverride != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Slider(
+                            value = state.playbackSpeed,
+                            onValueChange = { viewModel.setBookSpeedOverride(it) },
+                            valueRange = 0.5f..3.0f,
+                            steps = 49
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Skip backward & forward overrides
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.book_skip_backward),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(10, 15, 20, 30).forEach { sec ->
+                                    val isSelected = state.skipBackSeconds == sec
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.clickable { viewModel.setBookSkipBackOverride(sec) }
+                                    ) {
+                                        Text(
+                                            text = "${sec}s",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.book_skip_forward),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(15, 20, 30, 45).forEach { sec ->
+                                    val isSelected = state.skipForwardSeconds == sec
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.clickable { viewModel.setBookSkipForwardOverride(sec) }
+                                    ) {
+                                        Text(
+                                            text = "${sec}s",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Silence skipping override
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Silence skipping",
+                                text = stringResource(R.string.book_silence_skipping),
                                 fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "Automatically skip silent pauses in narration",
+                                text = "Skip silence for this book",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Switch(
                             checked = state.silenceSkippingEnabled,
-                            onCheckedChange = { viewModel.toggleSilenceSkipping() }
+                            onCheckedChange = { viewModel.setBookSilenceSkippingOverride(it) }
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Volume boost slider
+                    // Volume boost override
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -526,12 +708,12 @@ fun PlayerScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Volume boost",
+                                    text = stringResource(R.string.book_volume_boost),
                                     fontWeight = FontWeight.SemiBold,
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                                 Text(
-                                    text = "Boost audio level for quiet recordings",
+                                    text = "Boost level for quiet narration",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -551,15 +733,133 @@ fun PlayerScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Slider(
                             value = state.volumeBoostLevel,
-                            onValueChange = viewModel::setVolumeBoost,
+                            onValueChange = { viewModel.setBookVolumeBoostOverride(it) },
                             valueRange = 0f..1.0f
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // SECTION 2: VOICE & CLARITY
+                    Text(
+                        text = stringResource(R.string.voice_section),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Mono downmix
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.mono_downmix),
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = stringResource(R.string.mono_downmix_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.monoDownmixEnabled,
+                            onCheckedChange = { viewModel.setMonoDownmix(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Loudness Normalization
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.loudness_normalization),
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = stringResource(R.string.loudness_normalization_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.loudnessNormalizationEnabled,
+                            onCheckedChange = { viewModel.setLoudnessNormalization(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Voice Boost preset (Off / Light / Strong)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.voice_boost),
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = stringResource(R.string.voice_boost_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf("Off", "Light", "Strong").forEach { preset ->
+                                val isSelected = state.voiceBoostPreset.equals(preset, ignoreCase = true)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.clickable { viewModel.setVoiceBoostPreset(preset) }
+                                ) {
+                                    Text(
+                                        text = when(preset) {
+                                            "Light" -> stringResource(R.string.voice_boost_light)
+                                            "Strong" -> stringResource(R.string.voice_boost_strong)
+                                            else -> stringResource(R.string.voice_boost_off)
+                                        },
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // SECTION 3: ADVANCED
+                    Text(
+                        text = stringResource(R.string.advanced_section),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Sleep timer fade-out and shake-to-extend are active. Double-tap cover art to play/pause.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -765,6 +1065,7 @@ private fun PlayerContent(
     state: PlaybackState,
     skipSeconds: Int,
     compactPlayer: Boolean,
+    playerGesturesEnabled: Boolean = true,
     bookColors: PlayerBookColors,
     isDark: Boolean,
     hasMultipleChapters: Boolean,
@@ -779,27 +1080,147 @@ private fun PlayerContent(
     onUndoSeek: () -> Unit,
     onPreviousChapter: () -> Unit,
     onSkipBackward: () -> Unit,
+    onLongSkipBackward: () -> Unit = {},
     onTogglePlayPause: () -> Unit,
     onSkipForward: () -> Unit,
+    onLongSkipForward: () -> Unit = {},
     onNextChapter: () -> Unit,
     onSleepClick: () -> Unit,
     onSpeedClick: () -> Unit,
     onBookmarksClick: () -> Unit,
     onMoreClick: () -> Unit,
     onSilenceToggle: () -> Unit,
-    onVolumeBoostClick: () -> Unit
+    onVolumeBoostClick: () -> Unit,
+    onDismissWelcomeBack: () -> Unit = {},
+    onRewindToChapterStart: () -> Unit = {},
+    onDismissBedtimePrompt: () -> Unit = {},
+    onAcceptBedtimePrompt: () -> Unit = {}
 ) {
     if (showCover) {
-        // 1. Cover Art (15-20% smaller than previous 255dp, ~205dp with more breathing room)
-        BookCoverArt(
-            title = book?.displayTitle ?: "Evenfall",
-            author = book?.displayAuthor ?: "",
-            coverPath = book?.displayCoverUri,
-            shape = RoundedCornerShape(22.dp),
-            modifier = Modifier.size(if (compactPlayer) 205.dp else 240.dp)
-        )
+        // 1. Cover Art with double-tap gesture to play/pause
+        Box(
+            modifier = Modifier
+                .size(if (compactPlayer) 205.dp else 240.dp)
+                .pointerInput(playerGesturesEnabled) {
+                    if (playerGesturesEnabled) {
+                        detectTapGestures(
+                            onDoubleTap = { onTogglePlayPause() }
+                        )
+                    }
+                }
+        ) {
+            BookCoverArt(
+                title = book?.displayTitle ?: "Evenfall",
+                author = book?.displayAuthor ?: "",
+                coverPath = book?.displayCoverUri,
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         Spacer(modifier = Modifier.height(if (compactPlayer) 16.dp else 12.dp))
+    }
+
+    if (state.showWelcomeBackCard) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = bookColors.cardBackground,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.welcome_back_title),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = bookColors.onBackground
+                    )
+                    state.welcomeBackChapterTitle?.let { chapterTitle ->
+                        Text(
+                            text = stringResource(R.string.welcome_back_subtitle, chapterTitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = bookColors.onBackgroundMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick = onRewindToChapterStart,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.rewind_to_chapter_start),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                IconButton(onClick = onDismissWelcomeBack) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.dismiss),
+                        tint = bookColors.onBackgroundMuted
+                    )
+                }
+            }
+        }
+    }
+
+    if (state.showBedtimePrompt) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.bedtime_prompt_title),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    val duration = state.bedtimePromptDurationMinutes
+                    val durationLabel = if (duration == -1) "end of chapter" else "$duration min"
+                    Text(
+                        text = "It's bedtime. Would you like to start a $durationLabel sleep timer?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row {
+                        Button(
+                            onClick = onAcceptBedtimePrompt,
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text(stringResource(R.string.start_timer), style = MaterialTheme.typography.labelSmall)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = onDismissBedtimePrompt,
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text(stringResource(R.string.dismiss), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // 2. Title and Author: serif font, one line ellipsized, smaller size
@@ -1077,9 +1498,10 @@ private fun PlayerContent(
 
         // Skip Backward (tonal / muted style)
         CircularSkipButton(
-            seconds = skipSeconds,
+            seconds = state.skipBackSeconds,
             isForward = false,
             onClick = onSkipBackward,
+            onLongClick = onLongSkipBackward,
             size = if (isLandscape) 42.dp else 52.dp,
             containerColor = bookColors.cardBackground,
             contentColor = bookColors.onBackground
@@ -1101,9 +1523,10 @@ private fun PlayerContent(
 
         // Skip Forward (tonal / muted style)
         CircularSkipButton(
-            seconds = skipSeconds,
+            seconds = state.skipForwardSeconds,
             isForward = true,
             onClick = onSkipForward,
+            onLongClick = onLongSkipForward,
             size = if (isLandscape) 42.dp else 52.dp,
             containerColor = bookColors.cardBackground,
             contentColor = bookColors.onBackground

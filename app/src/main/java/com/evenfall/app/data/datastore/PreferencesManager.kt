@@ -85,6 +85,31 @@ class PreferencesManager(
         val KEY_FILTER_COLLECTION_ID = longPreferencesKey("filter_collection_id")
         val KEY_FILTER_SERIES_ONLY = booleanPreferencesKey("filter_series_only")
         val KEY_FILTER_UNAVAILABLE_ONLY = booleanPreferencesKey("filter_unavailable_only")
+
+        val KEY_HEADSET_DOUBLE_PRESS = stringPreferencesKey("headset_double_press_action")
+        val KEY_HEADSET_TRIPLE_PRESS = stringPreferencesKey("headset_triple_press_action")
+        val KEY_HEADSET_LONG_PRESS = stringPreferencesKey("headset_long_press_action")
+
+        val KEY_AUTO_RESUME_BT_ENABLED = booleanPreferencesKey("auto_resume_bt_enabled")
+        val KEY_AUTO_RESUME_BT_DEVICES = stringSetPreferencesKey("auto_resume_bt_devices")
+
+        val KEY_BEDTIME_ENABLED = booleanPreferencesKey("bedtime_timer_enabled")
+        val KEY_BEDTIME_START_HOUR = intPreferencesKey("bedtime_start_hour")
+        val KEY_BEDTIME_START_MINUTE = intPreferencesKey("bedtime_start_minute")
+        val KEY_BEDTIME_DURATION_MINUTES = intPreferencesKey("bedtime_duration_minutes")
+        val KEY_BEDTIME_DAYS = stringSetPreferencesKey("bedtime_days")
+        val KEY_BEDTIME_AUTO_START = booleanPreferencesKey("bedtime_auto_start")
+
+        val KEY_SMART_RESUME_TIER1 = intPreferencesKey("smart_resume_tier1")
+        val KEY_SMART_RESUME_TIER2 = intPreferencesKey("smart_resume_tier2")
+        val KEY_SMART_RESUME_TIER3 = intPreferencesKey("smart_resume_tier3")
+        val KEY_SMART_RESUME_TIER4 = intPreferencesKey("smart_resume_tier4")
+        val KEY_SMART_RESUME_TIER5 = intPreferencesKey("smart_resume_tier5")
+
+        val KEY_PLAYER_GESTURES_ENABLED = booleanPreferencesKey("player_gestures_enabled")
+        val KEY_GLOBAL_MONO_DOWNMIX = booleanPreferencesKey("global_mono_downmix")
+        val KEY_GLOBAL_LOUDNESS_NORMALIZATION = booleanPreferencesKey("global_loudness_normalization")
+        val KEY_GLOBAL_VOICE_BOOST_PRESET = stringPreferencesKey("global_voice_boost_preset")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -176,6 +201,31 @@ class PreferencesManager(
 
     val filterUnavailableOnly: Flow<Boolean> = dataStore.data.map { it[KEY_FILTER_UNAVAILABLE_ONLY] ?: false }
 
+    val headsetDoublePressAction: Flow<String> = dataStore.data.map { it[KEY_HEADSET_DOUBLE_PRESS] ?: "SKIP_FORWARD" }
+    val headsetTriplePressAction: Flow<String> = dataStore.data.map { it[KEY_HEADSET_TRIPLE_PRESS] ?: "SKIP_BACK" }
+    val headsetLongPressAction: Flow<String> = dataStore.data.map { it[KEY_HEADSET_LONG_PRESS] ?: "TOGGLE_SLEEP_TIMER" }
+
+    val autoResumeBluetoothEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_AUTO_RESUME_BT_ENABLED] ?: false }
+    val autoResumeBluetoothDevices: Flow<Set<String>> = dataStore.data.map { it[KEY_AUTO_RESUME_BT_DEVICES] ?: emptySet() }
+
+    val bedtimeEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_BEDTIME_ENABLED] ?: false }
+    val bedtimeStartHour: Flow<Int> = dataStore.data.map { it[KEY_BEDTIME_START_HOUR] ?: 22 }
+    val bedtimeStartMinute: Flow<Int> = dataStore.data.map { it[KEY_BEDTIME_START_MINUTE] ?: 0 }
+    val bedtimeDurationMinutes: Flow<Int> = dataStore.data.map { it[KEY_BEDTIME_DURATION_MINUTES] ?: 30 }
+    val bedtimeDays: Flow<Set<String>> = dataStore.data.map { it[KEY_BEDTIME_DAYS] ?: setOf("1", "2", "3", "4", "5", "6", "7") }
+    val bedtimeAutoStart: Flow<Boolean> = dataStore.data.map { it[KEY_BEDTIME_AUTO_START] ?: true }
+
+    val smartResumeTier1Sec: Flow<Int> = dataStore.data.map { it[KEY_SMART_RESUME_TIER1] ?: 0 }
+    val smartResumeTier2Sec: Flow<Int> = dataStore.data.map { it[KEY_SMART_RESUME_TIER2] ?: 5 }
+    val smartResumeTier3Sec: Flow<Int> = dataStore.data.map { it[KEY_SMART_RESUME_TIER3] ?: 15 }
+    val smartResumeTier4Sec: Flow<Int> = dataStore.data.map { it[KEY_SMART_RESUME_TIER4] ?: 30 }
+    val smartResumeTier5Sec: Flow<Int> = dataStore.data.map { it[KEY_SMART_RESUME_TIER5] ?: 60 }
+
+    val playerGesturesEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_PLAYER_GESTURES_ENABLED] ?: true }
+    val globalMonoDownmix: Flow<Boolean> = dataStore.data.map { it[KEY_GLOBAL_MONO_DOWNMIX] ?: false }
+    val globalLoudnessNormalization: Flow<Boolean> = dataStore.data.map { it[KEY_GLOBAL_LOUDNESS_NORMALIZATION] ?: false }
+    val globalVoiceBoostPreset: Flow<String> = dataStore.data.map { it[KEY_GLOBAL_VOICE_BOOST_PRESET] ?: "Off" }
+
     suspend fun setThemeMode(mode: ThemeMode) = dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     suspend fun setPureBlack(enabled: Boolean) = dataStore.edit { it[KEY_PURE_BLACK] = enabled }
     suspend fun setColorScheme(scheme: ColorSchemeOption) = dataStore.edit { it[KEY_COLOR_SCHEME] = scheme.name }
@@ -221,4 +271,31 @@ class PreferencesManager(
         it.remove(KEY_FILTER_SERIES_ONLY)
         it.remove(KEY_FILTER_UNAVAILABLE_ONLY)
     }
+
+    suspend fun setHeadsetDoublePressAction(action: String) = dataStore.edit { it[KEY_HEADSET_DOUBLE_PRESS] = action }
+    suspend fun setHeadsetTriplePressAction(action: String) = dataStore.edit { it[KEY_HEADSET_TRIPLE_PRESS] = action }
+    suspend fun setHeadsetLongPressAction(action: String) = dataStore.edit { it[KEY_HEADSET_LONG_PRESS] = action }
+
+    suspend fun setAutoResumeBluetoothEnabled(enabled: Boolean) = dataStore.edit { it[KEY_AUTO_RESUME_BT_ENABLED] = enabled }
+    suspend fun setAutoResumeBluetoothDevices(devices: Set<String>) = dataStore.edit { it[KEY_AUTO_RESUME_BT_DEVICES] = devices }
+
+    suspend fun setBedtimeEnabled(enabled: Boolean) = dataStore.edit { it[KEY_BEDTIME_ENABLED] = enabled }
+    suspend fun setBedtimeStartHour(hour: Int) = dataStore.edit { it[KEY_BEDTIME_START_HOUR] = hour }
+    suspend fun setBedtimeStartMinute(minute: Int) = dataStore.edit { it[KEY_BEDTIME_START_MINUTE] = minute }
+    suspend fun setBedtimeDurationMinutes(minutes: Int) = dataStore.edit { it[KEY_BEDTIME_DURATION_MINUTES] = minutes }
+    suspend fun setBedtimeDays(days: Set<String>) = dataStore.edit { it[KEY_BEDTIME_DAYS] = days }
+    suspend fun setBedtimeAutoStart(autoStart: Boolean) = dataStore.edit { it[KEY_BEDTIME_AUTO_START] = autoStart }
+
+    suspend fun setSmartResumeTiers(tier1: Int, tier2: Int, tier3: Int, tier4: Int, tier5: Int) = dataStore.edit {
+        it[KEY_SMART_RESUME_TIER1] = tier1
+        it[KEY_SMART_RESUME_TIER2] = tier2
+        it[KEY_SMART_RESUME_TIER3] = tier3
+        it[KEY_SMART_RESUME_TIER4] = tier4
+        it[KEY_SMART_RESUME_TIER5] = tier5
+    }
+
+    suspend fun setPlayerGesturesEnabled(enabled: Boolean) = dataStore.edit { it[KEY_PLAYER_GESTURES_ENABLED] = enabled }
+    suspend fun setGlobalMonoDownmix(enabled: Boolean) = dataStore.edit { it[KEY_GLOBAL_MONO_DOWNMIX] = enabled }
+    suspend fun setGlobalLoudnessNormalization(enabled: Boolean) = dataStore.edit { it[KEY_GLOBAL_LOUDNESS_NORMALIZATION] = enabled }
+    suspend fun setGlobalVoiceBoostPreset(preset: String) = dataStore.edit { it[KEY_GLOBAL_VOICE_BOOST_PRESET] = preset }
 }

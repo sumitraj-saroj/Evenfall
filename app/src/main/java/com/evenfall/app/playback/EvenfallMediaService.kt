@@ -12,8 +12,12 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.evenfall.app.MainActivity
+import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.db.dao.BookDao
+import com.evenfall.app.data.db.dao.BookmarkDao
 import com.evenfall.app.data.db.dao.ChapterDao
+import com.evenfall.app.data.db.entity.BookmarkEntity
+import com.evenfall.app.data.db.entity.BookmarkType
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -37,6 +41,81 @@ class EvenfallMediaService : MediaLibraryService() {
 
     @Inject
     lateinit var chapterDao: ChapterDao
+
+    @Inject
+    lateinit var bookmarkDao: BookmarkDao
+
+    @Inject
+    lateinit var preferencesManager: PreferencesManager
+
+    private val gestureInterpreter by lazy {
+        HeadsetGestureInterpreter(scope = serviceScope) { gesture ->
+            handleHeadsetGesture(gesture)
+        }
+    }
+
+    private fun handleHeadsetGesture(gesture: HeadsetGesture) {
+        serviceScope.launch {
+            when (gesture) {
+                HeadsetGesture.SINGLE_PRESS -> {
+                    playbackManager.togglePlayPause()
+                }
+                HeadsetGesture.DOUBLE_PRESS -> {
+                    val actionName = preferencesManager.headsetDoublePressAction.first()
+                    executeHeadsetAction(actionName)
+                }
+                HeadsetGesture.TRIPLE_PRESS -> {
+                    val actionName = preferencesManager.headsetTriplePressAction.first()
+                    executeHeadsetAction(actionName)
+                }
+                HeadsetGesture.LONG_PRESS -> {
+                    val actionName = preferencesManager.headsetLongPressAction.first()
+                    executeHeadsetAction(actionName)
+                }
+            }
+        }
+    }
+
+    private suspend fun executeHeadsetAction(actionName: String) {
+        when (actionName) {
+            HeadsetAction.NEXT_CHAPTER.name -> playbackManager.nextChapter()
+            HeadsetAction.PREVIOUS_CHAPTER.name -> playbackManager.previousChapter()
+            HeadsetAction.SKIP_FORWARD.name -> playbackManager.skipForward()
+            HeadsetAction.SKIP_BACK.name -> playbackManager.skipBackward()
+            HeadsetAction.SAVE_BOOKMARK.name -> {
+                val state = playbackManager.playbackState.value
+                val book = state.currentBook ?: return
+                val chapter = state.currentChapter ?: return
+                val count = bookmarkDao.getBookmarkCountForBook(book.id).first()
+                bookmarkDao.insert(
+                    BookmarkEntity(
+                        bookId = book.id,
+                        chapterIndex = chapter.chapterIndex,
+                        chapterTitle = chapter.title,
+                        positionMs = state.chapterPositionMs,
+                        bookProgressFraction = state.totalProgressFraction,
+                        title = "Bookmark ${count + 1}",
+                        type = BookmarkType.BOOKMARK
+                    )
+                )
+            }
+            HeadsetAction.TOGGLE_SLEEP_TIMER.name -> {
+                val state = playbackManager.playbackState.value
+                if (state.sleepTimerIsActive) {
+                    playbackManager.cancelSleepTimer()
+                } else {
+                    playbackManager.startSleepTimer(30)
+                }
+            }
+            HeadsetAction.CHANGE_SPEED.name -> {
+                val current = playbackManager.playbackState.value.playbackSpeed
+                val nextSpeed = if (current >= 2.5f) 1.0f else ((current + 0.1f) * 10).toInt() / 10f
+                playbackManager.setPlaybackSpeed(nextSpeed)
+            }
+            HeadsetAction.NONE.name -> { /* no-op */ }
+            else -> playbackManager.togglePlayPause()
+        }
+    }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var mediaLibrarySession: MediaLibrarySession? = null
@@ -199,6 +278,31 @@ class EvenfallMediaService : MediaLibraryService() {
                     }
                 }
                 return super.onSetMediaItems(mediaSession, controller, mediaItems, startIndex, startPositionMs)
+            }
+
+            override fun onMediaButtonEvent(
+                session: MediaSession,
+                controllerInfo: MediaSession.ControllerInfo,
+                intent: Intent
+            ): Boolean {
+                val keyEvent: android.view.KeyEvent? = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+                if (keyEvent != null) {
+                    val keyCode = keyEvent.keyCode
+                    if (keyCode == android.view.KeyEvent.KEYCODE_HEADSETHOOK ||
+                        keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                        keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY ||
+                        keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PAUSE
+                    ) {
+                        if (keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                            gestureInterpreter.onKeyDown(keyEvent.eventTime)
+                            return true
+                        } else if (keyEvent.action == android.view.KeyEvent.ACTION_UP) {
+                            gestureInterpreter.onKeyUp(keyEvent.eventTime)
+                            return true
+                        }
+                    }
+                }
+                return super.onMediaButtonEvent(session, controllerInfo, intent)
             }
         }
 

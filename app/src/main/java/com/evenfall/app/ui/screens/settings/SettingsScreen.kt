@@ -1,6 +1,11 @@
 package com.evenfall.app.ui.screens.settings
 
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import androidx.core.content.ContextCompat
+import com.evenfall.app.playback.HeadsetAction
+import java.util.Locale
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -48,6 +53,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -68,6 +75,9 @@ import com.evenfall.app.util.TimeUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -104,6 +114,21 @@ fun SettingsScreen(
 
     var showExportAllDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var exportAllFormat by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.evenfall.app.util.ExportFormat.MARKDOWN) }
+
+    var showBtRationaleDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var btPermissionDeniedMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+
+    val btPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            btPermissionDeniedMessage = null
+            viewModel.setAutoResumeBluetooth(true)
+        } else {
+            btPermissionDeniedMessage = context.getString(R.string.bluetooth_permission_denied)
+            viewModel.setAutoResumeBluetooth(false)
+        }
+    }
 
     val backupFolderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -584,6 +609,264 @@ fun SettingsScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // CONTROLS & HEADSET CARD
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = stringResource(R.string.controls_title),
+                            fontFamily = SerifFont,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Player Gestures Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.player_gestures_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.player_gestures_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.playerGesturesEnabled,
+                                onCheckedChange = viewModel::setPlayerGesturesEnabled
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Headset Controls Header
+                        Text(
+                            text = stringResource(R.string.headset_controls_title),
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Headset Double-press Mapping
+                        HeadsetActionRow(
+                            title = stringResource(R.string.headset_double_press),
+                            currentAction = uiState.headsetDoublePress,
+                            onActionSelected = viewModel::setHeadsetDoublePress
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Headset Triple-press Mapping
+                        HeadsetActionRow(
+                            title = stringResource(R.string.headset_triple_press),
+                            currentAction = uiState.headsetTriplePress,
+                            onActionSelected = viewModel::setHeadsetTriplePress
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Headset Long-press Mapping
+                        HeadsetActionRow(
+                            title = stringResource(R.string.headset_long_press),
+                            currentAction = uiState.headsetLongPress,
+                            onActionSelected = viewModel::setHeadsetLongPress
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Auto-resume on Bluetooth / Car connect
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.bluetooth_autoresume_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.bluetooth_autoresume_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.autoResumeBluetoothEnabled,
+                                onCheckedChange = { enable ->
+                                    if (enable) {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                            val permissionCheck = ContextCompat.checkSelfPermission(
+                                                context,
+                                                android.Manifest.permission.BLUETOOTH_CONNECT
+                                            )
+                                            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                                                showBtRationaleDialog = true
+                                            } else {
+                                                viewModel.setAutoResumeBluetooth(true)
+                                            }
+                                        } else {
+                                            viewModel.setAutoResumeBluetooth(true)
+                                        }
+                                    } else {
+                                        viewModel.setAutoResumeBluetooth(false)
+                                    }
+                                }
+                            )
+                        }
+
+                        if (btPermissionDeniedMessage != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = btPermissionDeniedMessage!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // BEDTIME SCHEDULE CARD
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.bedtime_title),
+                                    fontFamily = SerifFont,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.bedtime_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.bedtimeEnabled,
+                                onCheckedChange = viewModel::setBedtimeEnabled
+                            )
+                        }
+
+                        if (uiState.bedtimeEnabled) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Bedtime Start Time
+                            Text(
+                                text = stringResource(R.string.bedtime_start_time),
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(21 to 0, 22 to 0, 22 to 30, 23 to 0, 23 to 30).forEach { (h, m) ->
+                                    val isSelected = uiState.bedtimeStartHour == h && uiState.bedtimeStartMinute == m
+                                    val label = String.format(Locale.US, "%02d:%02d", h, m)
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.clickable {
+                                            viewModel.setBedtimeStartHour(h)
+                                            viewModel.setBedtimeStartMinute(m)
+                                        }
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Timer Duration
+                            Text(
+                                text = stringResource(R.string.bedtime_duration),
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(15, 30, 45, 60, -1).forEach { dur ->
+                                    val isSelected = uiState.bedtimeDurationMinutes == dur
+                                    val label = if (dur == -1) "End of ch." else "${dur}m"
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.clickable { viewModel.setBedtimeDurationMinutes(dur) }
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Mode (Auto-start vs Prompt)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.bedtime_auto_start),
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = if (uiState.bedtimeAutoStart) "Starts timer automatically upon playback" else "Shows one-tap prompt upon playback",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = uiState.bedtimeAutoStart,
+                                    onCheckedChange = viewModel::setBedtimeAutoStart
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // BACKUP & LIBRARY FOLDERS CARD
                 Surface(
                     shape = RoundedCornerShape(28.dp),
@@ -963,6 +1246,34 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // Bluetooth Permission Rationale Dialog
+        if (showBtRationaleDialog) {
+            AlertDialog(
+                onDismissRequest = { showBtRationaleDialog = false },
+                title = { Text(stringResource(R.string.bluetooth_autoresume_title)) },
+                text = { Text(stringResource(R.string.bluetooth_permission_rationale)) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showBtRationaleDialog = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                btPermissionLauncher.launch(android.Manifest.permission.BLUETOOTH_CONNECT)
+                            } else {
+                                viewModel.setAutoResumeBluetooth(true)
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.grant_permission))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBtRationaleDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
         }
 
         // Restore Review Dialog
@@ -1438,6 +1749,62 @@ fun SplitColorSwatch(
                 tint = Color.White,
                 modifier = Modifier.size(18.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun HeadsetActionRow(
+    title: String,
+    currentAction: String,
+    onActionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val currentEnum = try {
+        HeadsetAction.valueOf(currentAction)
+    } catch (_: Exception) {
+        HeadsetAction.SKIP_FORWARD
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+
+        Box {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.clickable { expanded = true }
+            ) {
+                Text(
+                    text = stringResource(currentEnum.labelResId),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                HeadsetAction.values().forEach { action ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(action.labelResId)) },
+                        onClick = {
+                            onActionSelected(action.name)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
