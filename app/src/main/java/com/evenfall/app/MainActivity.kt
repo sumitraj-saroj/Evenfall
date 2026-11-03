@@ -150,12 +150,15 @@ fun EvenfallAppNav(
         }
     }
 
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isTabletTwoPane = configuration.screenWidthDp >= 600 && currentRoute == Screen.Home.route
+
     val isPlayerOrOnboarding = currentRoute != null && (
         currentRoute.startsWith("player") ||
         currentRoute == Screen.Onboarding.route
     )
     val loadedBook = playbackState.currentBook
-    val showMiniPlayer = loadedBook != null && !playbackState.isMiniPlayerDismissed && !isPlayerOrOnboarding
+    val showMiniPlayer = loadedBook != null && !playbackState.isMiniPlayerDismissed && !isPlayerOrOnboarding && !isTabletTwoPane
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(

@@ -121,6 +121,23 @@ class HomeViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
+    val playbackState = playbackManager.playbackState
+
+    fun playBook(book: BookEntity) {
+        playbackManager.loadBook(book.id)
+        playbackManager.play()
+    }
+
+    fun togglePlayPause() = playbackManager.togglePlayPause()
+    fun skipBackward() = playbackManager.skipBackward()
+    fun skipForward() = playbackManager.skipForward()
+    fun seekToFraction(fraction: Float) {
+        val total = playbackManager.playbackState.value.currentBook?.totalDurationMs ?: 0L
+        if (total > 0) {
+            playbackManager.seekTo((total * fraction).toLong())
+        }
+    }
+
     init {
         viewModelScope.launch {
             demoDataSeeder.seedDemoDataIfEmpty()
