@@ -99,8 +99,10 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
      - Skip amount stepper (`[-]` and `[+]` with live button preview, default 20 seconds).
      - Auto-rewind after pause toggle (rewinds proportionally to pause duration).
      - Shake-to-extend accelerometer toggle.
+   - Controls: Headset gesture mappings (Double-press, Triple-press, Long-press), Player gestures (Double-tap cover, swipe down collapse), safe Bluetooth/Car auto-resume.
+   - Bedtime: Scheduled sleep timer with days of week, start time, duration, and auto-start vs prompt mode.
    - Library & Backup: Rescan audiobooks, automatic daily backups, export bookmarks, scan log, manage collections.
-   - About: Evenfall v1.4.0, open-source licenses, 100% offline guarantee.
+   - About: Evenfall v1.5.0, open-source licenses, 100% offline guarantee.
 
 13. **Android Auto**:
    - `MediaLibraryService` with driver-safe browsable catalog (Continue Listening, All Books, Chapters).
@@ -162,6 +164,17 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
    - In-app debug generator (`SyntheticLibraryGenerator`) producing 500+ books with 20+ hour M4Bs (100+ chapters), varied authors, states, and bookmarks.
    - Verified smooth lazy-loaded scrolling, non-blocking background scanning, stable memory usage (< 50MB delta for 500 books), and rapid playback position persistence (1,000 updates in 1ms) surviving Doze transitions and process death.
 
+18. **Smarter Listening Experience (v1.5.0)**:
+   - **Per-Book Playback Overrides**: Speed, skip amounts (backward/forward), silence skipping, and volume boost can each be overridden per book in Room (`MIGRATION_4_5`). Global preferences never overwrite custom per-book overrides.
+   - **Grouped Playback Options Sheet**: Logically organized into **This book** (with "Using defaults / Custom overrides" badge and "Reset to default" action), **Voice**, and **Advanced**.
+   - **Tiered Smart Resume Auto-Rewind**: Proportionally rewinds upon unpause based on pause duration (<1m: 0s, 1–10m: 5s, 10m–1h: 15s, 1h–24h: 30s, >24h: 60s). Fully configurable and toggleable.
+   - **Welcome Back Card**: After gaps over 24 hours, displays a dismissible card on the player showing the last chapter with one-tap "Rewind to chapter start".
+   - **Headset Button Gestures**: Unit-tested `HeadsetGestureInterpreter` mapping double-press, triple-press, and long-press to customizable actions (next/prev chapter, skip forward/back, bookmark, sleep timer, speed).
+   - **Safe Bluetooth / Car Auto-Resume**: Optional auto-resume on connection with `BLUETOOTH_CONNECT` runtime permission; checks `audioManager.isMusicActive()` so it never interrupts other media apps; logs events in History as `"Resumed · Car"`.
+   - **Bedtime Sleep Timer Schedule**: Automatic nighttime window detection with midnight crossover support; auto-starts sleep timer or shows a bedtime prompt on playback.
+   - **Voice Clarity Audio Pipeline**: Custom Media3 `MonoDownmixAudioProcessor` for single-earbud listening, `LoudnessEnhancer` normalization for uneven recordings, and 3-state speech-optimized EQ `VoiceBoost` preset (Off / Light / Strong).
+   - **Quick Controls & Cover Gestures**: Long-press skip buttons to open immediate popup slider (5–120s) with live preview; double-tap cover art to play/pause; swipe down to collapse player.
+
 ---
 
 ## 🔒 Privacy & Offline Architecture
@@ -179,7 +192,7 @@ app/src/main/java/com/evenfall/app/
 ├── data/
 │   ├── backup/          # BackupManager, Serializer, Rotator, MergeEngine, Worker
 │   ├── datastore/       # DataStore preferences (theme, skip amount, scan mode, sort, filter, view mode)
-│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3, 3->4)
+│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3, 3->4, 4->5)
 │   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao, ScanIssueDao, CollectionDao, SearchDao
 │   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity, ScanIssueEntity, CollectionEntity, BookCollectionCrossRef, RecentSearchEntity, SearchIndexFtsEntity
 │   ├── parser/          # AudioMetadataParser, SeriesTagParser, natural order filename sorter
@@ -188,7 +201,7 @@ app/src/main/java/com/evenfall/app/
 │   ├── synthetic/       # SyntheticLibraryGenerator (debug 500+ books stress testing)
 │   └── DemoDataSeeder.kt# Sample book seeder matching screenshots
 ├── di/                  # Hilt Dependency Injection (DatabaseModule)
-├── playback/            # Media3 MediaLibraryService, PlaybackManager (auto-play next in series), ShakeDetector
+├── playback/            # Media3 MediaLibraryService, PlaybackManager, ShakeDetector, HeadsetGestureInterpreter, SmartResumeTiers, BedtimeScheduleEvaluator, MonoDownmixAudioProcessor, BluetoothAutoResumeReceiver
 ├── ui/
 │   ├── components/      # CookieShape, SortFilterBottomSheet, AddToCollectionDialog, BookCoverArt
 │   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings, ScanLog, ManageCollections)
