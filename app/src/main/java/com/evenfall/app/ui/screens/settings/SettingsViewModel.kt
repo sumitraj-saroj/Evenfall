@@ -22,6 +22,7 @@ import com.evenfall.app.data.scanner.LibraryRelinker
 import com.evenfall.app.data.scanner.NewBookMatchInfo
 import com.evenfall.app.data.scanner.OldBookMatchInfo
 import com.evenfall.app.data.scanner.RelinkAnalysis
+import com.evenfall.app.data.synthetic.SyntheticLibraryGenerator
 import com.evenfall.app.ui.theme.ColorSchemeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -88,7 +89,8 @@ class SettingsViewModel @Inject constructor(
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
     private val historyDao: HistoryDao,
-    private val backupManager: BackupManager
+    private val backupManager: BackupManager,
+    private val syntheticLibraryGenerator: SyntheticLibraryGenerator
 ) : ViewModel() {
 
     private val _backupStatus = MutableStateFlow<String?>(null)
@@ -393,5 +395,22 @@ class SettingsViewModel @Inject constructor(
             com.evenfall.app.util.BookExportData(b, bookmarks, chapters)
         }
         return com.evenfall.app.util.BookmarkExporter.exportAll(booksData, format)
+    }
+
+    fun generateSyntheticLibrary(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            _backupStatus.value = "Generating 500+ synthetic books..."
+            val count = syntheticLibraryGenerator.generateSyntheticLibrary(500)
+            _backupStatus.value = "Generated $count synthetic books!"
+            onComplete(count)
+        }
+    }
+
+    fun clearSyntheticLibrary(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val count = syntheticLibraryGenerator.clearSyntheticBooks()
+            _backupStatus.value = "Cleared $count synthetic books"
+            onComplete(count)
+        }
     }
 }

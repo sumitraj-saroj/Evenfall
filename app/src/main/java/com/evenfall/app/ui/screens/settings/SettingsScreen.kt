@@ -869,6 +869,48 @@ fun SettingsScreen(
                     }
                 }
 
+                if (com.evenfall.app.BuildConfig.DEBUG) {
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = "Developer & Stress Testing",
+                                fontFamily = SerifFont,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Generate synthetic library of 500+ books with 20+ hour M4B files (100+ chapters) to verify smooth scrolling, stable memory, and position persistence.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { viewModel.generateSyntheticLibrary() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Generate 500+", fontSize = 12.sp)
+                                }
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = { viewModel.clearSyntheticLibrary() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Clear synthetic", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
