@@ -9,6 +9,7 @@ import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.dao.CollectionDao
 import com.evenfall.app.data.db.dao.HistoryDao
+import com.evenfall.app.data.db.dao.ListeningSessionDao
 import com.evenfall.app.data.db.dao.ScanIssueDao
 import com.evenfall.app.data.db.dao.SearchDao
 import com.evenfall.app.data.db.entity.BookmarkEntity
@@ -17,6 +18,7 @@ import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.ChapterEntity
 import com.evenfall.app.data.db.entity.CollectionEntity
 import com.evenfall.app.data.db.entity.HistoryEntity
+import com.evenfall.app.data.db.entity.ListeningSessionEntity
 import com.evenfall.app.data.db.entity.RecentSearchEntity
 import com.evenfall.app.data.db.entity.ScanIssueEntity
 import com.evenfall.app.data.db.entity.SearchIndexFtsEntity
@@ -31,9 +33,10 @@ import com.evenfall.app.data.db.entity.SearchIndexFtsEntity
         CollectionEntity::class,
         BookCollectionCrossRef::class,
         RecentSearchEntity::class,
-        SearchIndexFtsEntity::class
+        SearchIndexFtsEntity::class,
+        ListeningSessionEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class EvenfallDatabase : RoomDatabase() {
@@ -44,6 +47,7 @@ abstract class EvenfallDatabase : RoomDatabase() {
     abstract fun scanIssueDao(): ScanIssueDao
     abstract fun collectionDao(): CollectionDao
     abstract fun searchDao(): SearchDao
+    abstract fun listeningSessionDao(): ListeningSessionDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -138,6 +142,25 @@ abstract class EvenfallDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `books` ADD COLUMN `voiceBoostPresetOverride` TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE `books` ADD COLUMN `monoDownmixOverride` INTEGER DEFAULT NULL")
                 db.execSQL("ALTER TABLE `books` ADD COLUMN `loudnessNormalizationOverride` INTEGER DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `listening_sessions` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `bookId` INTEGER NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `listenedDurationMs` INTEGER NOT NULL,
+                        `contentDurationMs` INTEGER NOT NULL,
+                        FOREIGN KEY(`bookId`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_listening_sessions_bookId` ON `listening_sessions` (`bookId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_listening_sessions_timestamp` ON `listening_sessions` (`timestamp`)")
             }
         }
     }
