@@ -101,8 +101,8 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
      - Shake-to-extend accelerometer toggle.
    - Controls: Headset gesture mappings (Double-press, Triple-press, Long-press), Player gestures (Double-tap cover, swipe down collapse), safe Bluetooth/Car auto-resume.
    - Bedtime: Scheduled sleep timer with days of week, start time, duration, and auto-start vs prompt mode.
-   - Library & Backup: Rescan audiobooks, automatic daily backups, export bookmarks, scan log, manage collections.
-   - About: Evenfall v1.5.0, open-source licenses, 100% offline guarantee.
+   - Library & Backup: Rescan audiobooks, automatic daily backups, export bookmarks, scan log, manage collections, listening stats.
+   - About: Evenfall v1.6.0, open-source licenses, 100% offline guarantee.
 
 13. **Android Auto**:
    - `MediaLibraryService` with driver-safe browsable catalog (Continue Listening, All Books, Chapters).
@@ -175,6 +175,21 @@ Evenfall faithfully recreates all 8 design reference screens along with essentia
    - **Voice Clarity Audio Pipeline**: Custom Media3 `MonoDownmixAudioProcessor` for single-earbud listening, `LoudnessEnhancer` normalization for uneven recordings, and 3-state speech-optimized EQ `VoiceBoost` preset (Off / Light / Strong).
    - **Quick Controls & Cover Gestures**: Long-press skip buttons to open immediate popup slider (5–120s) with live preview; double-tap cover art to play/pause; swipe down to collapse player.
 
+19. **Local Stats & Quick Access (v1.6.0)**:
+   - **Local Listening Stats Accounting**: Pure, unit-tested session tracker (`ListeningSessionTracker`) accurately measuring wall-clock listening duration versus content progress across seeks, speed changes, silence skipping, and pauses.
+   - **Room Session Storage (`MIGRATION_5_6`)**: Stores session timestamps, book ID, listened duration, and content duration. Never records anything beyond essential listening metrics.
+   - **Calm & Private Stats Screen**:
+     - Listening totals for Today, This Week, This Month, and All-Time.
+     - Books finished count.
+     - Current and longest listening streaks (calendar-day based, calm without gamification pressure).
+     - 7-day interactive weekly bar chart with accessible TalkBack descriptions.
+     - Top 5 audiobooks by listening duration.
+     - "Time saved" metric computing hours and minutes saved via playback speed and silence skipping.
+     - Toggleable recording setting and one-tap "Delete all stats" clearing tool.
+   - **Quick Settings Tile**: Android `TileService` ("Resume / Pause Evenfall") showing current book title as subtitle, handling play/pause toggles and cold-start resumption of the last-played book.
+   - **Dynamic Launcher Shortcuts**: Native `ShortcutManager` shortcuts for "Continue <book name>" (dynamically updated as the last-played book changes) and "Library", capped at system limits.
+   - **Wear OS Media3 Integration Architecture**: Architectural blueprint in `docs/wear-os.md` specifying zero-network `MediaController` session integration, ambient mode battery savings, and circular UI layouts.
+
 ---
 
 ## 🔒 Privacy & Offline Architecture
@@ -192,19 +207,21 @@ app/src/main/java/com/evenfall/app/
 ├── data/
 │   ├── backup/          # BackupManager, Serializer, Rotator, MergeEngine, Worker
 │   ├── datastore/       # DataStore preferences (theme, skip amount, scan mode, sort, filter, view mode)
-│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3, 3->4, 4->5)
-│   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao, ScanIssueDao, CollectionDao, SearchDao
-│   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity, ScanIssueEntity, CollectionEntity, BookCollectionCrossRef, RecentSearchEntity, SearchIndexFtsEntity
+│   ├── db/              # Room Database (EvenfallDatabase, Migrations 1->2, 2->3, 3->4, 4->5, 5->6)
+│   │   ├── dao/         # BookDao, ChapterDao, BookmarkDao, HistoryDao, ScanIssueDao, CollectionDao, SearchDao, ListeningSessionDao
+│   │   └── entity/      # BookEntity, ChapterEntity, BookmarkEntity, HistoryEntity, ScanIssueEntity, CollectionEntity, BookCollectionCrossRef, RecentSearchEntity, SearchIndexFtsEntity, ListeningSessionEntity
 │   ├── parser/          # AudioMetadataParser, SeriesTagParser, natural order filename sorter
 │   ├── repository/      # LibraryRepository, SearchRepository (Room FTS4 indexing & query)
 │   ├── scanner/         # Resilient LibraryScanner & LibraryRelinker
 │   ├── synthetic/       # SyntheticLibraryGenerator (debug 500+ books stress testing)
 │   └── DemoDataSeeder.kt# Sample book seeder matching screenshots
 ├── di/                  # Hilt Dependency Injection (DatabaseModule)
-├── playback/            # Media3 MediaLibraryService, PlaybackManager, ShakeDetector, HeadsetGestureInterpreter, SmartResumeTiers, BedtimeScheduleEvaluator, MonoDownmixAudioProcessor, BluetoothAutoResumeReceiver
+├── playback/            # Media3 MediaLibraryService, PlaybackManager, ShakeDetector, HeadsetGestureInterpreter, SmartResumeTiers, BedtimeScheduleEvaluator, MonoDownmixAudioProcessor, BluetoothAutoResumeReceiver, ListeningSessionTracker, ListeningStatsCalculator
+├── service/             # EvenfallTileService (Quick Settings Tile)
+├── shortcuts/           # EvenfallShortcutManager (Dynamic launcher shortcuts)
 ├── ui/
 │   ├── components/      # CookieShape, SortFilterBottomSheet, AddToCollectionDialog, BookCoverArt
-│   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings, ScanLog, ManageCollections)
+│   ├── navigation/      # NavRoutes (Onboarding, Home, Player, Bookmarks, Settings, ScanLog, ManageCollections, Stats)
 │   ├── screens/
 │   │   ├── bookmarks/   # BookmarksHistoryScreen & BookmarksTimeline
 │   │   ├── collections/ # ManageCollectionsScreen & ManageCollectionsViewModel
@@ -213,7 +230,8 @@ app/src/main/java/com/evenfall/app/
 │   │   ├── onboarding/  # OnboardingScreen & ScannedBookPreview
 │   │   ├── player/      # PlayerScreen & PlayerTheming
 │   │   ├── scanlog/     # ScanLogScreen & ScanLogViewModel
-│   │   └── settings/    # SettingsScreen & ThemePreviewCard
+│   │   ├── settings/    # SettingsScreen & ThemePreviewCard
+│   │   └── stats/       # StatsScreen & StatsViewModel (Calm listening stats, streaks, weekly chart)
 │   └── theme/           # Color, Shape, Type (Serif typography), Theme
 ├── util/                # TimeUtils & BookmarkExporter
 └── widget/              # Glance widgets (NowPlayingWidget, ContinueListeningWidget)
