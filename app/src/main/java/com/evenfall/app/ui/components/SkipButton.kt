@@ -23,6 +23,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.evenfall.app.R
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -154,12 +156,12 @@ fun QuickSkipAdjustDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Done")
+                Text(stringResource(R.string.done))
             }
         },
         title = {
             Text(
-                text = if (isForward) "Skip Forward Amount" else "Skip Backward Amount",
+                text = if (isForward) stringResource(R.string.book_skip_forward) else stringResource(R.string.book_skip_backward),
                 fontFamily = SerifFont,
                 style = MaterialTheme.typography.titleMedium
             )

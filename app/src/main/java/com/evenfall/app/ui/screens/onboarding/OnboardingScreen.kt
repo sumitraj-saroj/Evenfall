@@ -125,7 +125,7 @@ fun OnboardingScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.cd_back)
                             )
                         }
                     },
@@ -181,7 +181,7 @@ fun OnboardingScreen(
                                     .height(56.dp),
                                 shape = RoundedCornerShape(28.dp)
                             ) {
-                                Text("Scanning...", fontSize = 16.sp)
+                                Text(stringResource(R.string.scanning_progress_simple), fontSize = 16.sp)
                             }
                         }
                         else -> {
@@ -434,7 +434,7 @@ fun OnboardingScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Each subfolder is a book (recommended)", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.subfolder_book_recommended), fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Multi-file and single-file audiobooks kept inside separate folders",
                                 style = MaterialTheme.typography.bodySmall,
@@ -465,7 +465,7 @@ fun OnboardingScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Each audio file is a book", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.single_file_book), fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Useful if you have standalone M4B or MP3 files in one folder",
                                 style = MaterialTheme.typography.bodySmall,
@@ -481,11 +481,11 @@ fun OnboardingScreen(
         if (restoreMessage != null && pendingRestoreBackup == null) {
             AlertDialog(
                 onDismissRequest = viewModel::clearRestoreMessage,
-                title = { Text("Restore", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_from_backup), fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
                 text = { Text(restoreMessage ?: "") },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearRestoreMessage) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )

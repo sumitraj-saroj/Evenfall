@@ -512,7 +512,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Auto-rewind after pause", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.auto_rewind_after_pause), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Rewinds a few seconds based on pause length",
                                     fontSize = 12.sp,
@@ -533,7 +533,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Shake to extend sleep timer", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.shake_to_extend_sleep_timer), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Gently shake phone to add 15 minutes before sleep timer ends",
                                     fontSize = 12.sp,
@@ -554,7 +554,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Compact player", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.compact_player), fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "Calm, streamlined layout with simplified controls",
                                     fontSize = 12.sp,
@@ -991,8 +991,8 @@ fun SettingsScreen(
                                 Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text("Rescan audiobooks", fontWeight = FontWeight.SemiBold)
-                                    Text("Detect new, renamed, or removed files", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.rescan_audiobooks), fontWeight = FontWeight.SemiBold)
+                                    Text(stringResource(R.string.rescan_audiobooks_desc), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -1112,7 +1112,7 @@ fun SettingsScreen(
                                     IconButton(onClick = viewModel::clearBackupFolder) {
                                         Icon(
                                             Icons.Default.Remove,
-                                            contentDescription = "Clear backup folder",
+                                            contentDescription = stringResource(R.string.cd_clear_backup_folder),
                                             tint = MaterialTheme.colorScheme.error
                                         )
                                     }
@@ -1472,11 +1472,11 @@ fun SettingsScreen(
         if (uiState.restoreSuccessMessage != null) {
             AlertDialog(
                 onDismissRequest = viewModel::clearStatusMessage,
-                title = { Text("Restore Complete", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_complete), fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
                 text = { Text(uiState.restoreSuccessMessage ?: "") },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearStatusMessage) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )
@@ -1486,11 +1486,11 @@ fun SettingsScreen(
         if (uiState.restoreErrorMessage != null) {
             AlertDialog(
                 onDismissRequest = viewModel::clearStatusMessage,
-                title = { Text("Restore Failed", fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_failed), fontFamily = SerifFont, fontWeight = FontWeight.Bold) },
                 text = { Text(uiState.restoreErrorMessage ?: "") },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearStatusMessage) {
-                        Text("OK")
+                        Text(stringResource(R.string.ok))
                     }
                 }
             )

@@ -154,7 +154,7 @@ fun GridBookCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Check,
-                                contentDescription = "Finished",
+                                contentDescription = stringResource(R.string.status_finished),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -244,7 +244,7 @@ fun GridBookCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Book menu",
+                            contentDescription = stringResource(R.string.cd_book_menu),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -254,7 +254,7 @@ fun GridBookCard(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Edit details") },
+                            text = { Text(stringResource(R.string.edit_details)) },
                             onClick = {
                                 showMenu = false
                                 onEditDetails()
@@ -269,7 +269,7 @@ fun GridBookCard(
                         )
                         if (book.isFinished) {
                             DropdownMenuItem(
-                                text = { Text("Mark as not started") },
+                                text = { Text(stringResource(R.string.mark_as_not_started)) },
                                 onClick = {
                                     showMenu = false
                                     onMarkUnfinished()
@@ -277,7 +277,7 @@ fun GridBookCard(
                             )
                         } else {
                             DropdownMenuItem(
-                                text = { Text("Mark as finished") },
+                                text = { Text(stringResource(R.string.mark_as_finished)) },
                                 onClick = {
                                     showMenu = false
                                     onMarkFinished()
@@ -495,7 +495,7 @@ fun SeriesBookRow(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = if (book.isFinished) "Finished" else "${TimeUtils.formatDuration(book.totalDurationMs - book.currentPositionMs)} left",
+                    text = if (book.isFinished) stringResource(R.string.status_finished) else stringResource(R.string.time_left_format, TimeUtils.formatDuration(book.totalDurationMs - book.currentPositionMs)),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -527,7 +527,7 @@ fun SeriesBookRow(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
+                            contentDescription = stringResource(R.string.cd_play),
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -539,7 +539,7 @@ fun SeriesBookRow(
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Book menu",
+                        contentDescription = stringResource(R.string.cd_book_menu),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -548,7 +548,7 @@ fun SeriesBookRow(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Edit details") },
+                        text = { Text(stringResource(R.string.edit_details)) },
                         onClick = {
                             showMenu = false
                             onEditDetails()
@@ -563,7 +563,7 @@ fun SeriesBookRow(
                     )
                     if (book.isFinished) {
                         DropdownMenuItem(
-                            text = { Text("Mark as not started") },
+                            text = { Text(stringResource(R.string.mark_as_not_started)) },
                             onClick = {
                                 showMenu = false
                                 onMarkUnfinished()
@@ -571,7 +571,7 @@ fun SeriesBookRow(
                         )
                     } else {
                         DropdownMenuItem(
-                            text = { Text("Mark as finished") },
+                            text = { Text(stringResource(R.string.mark_as_finished)) },
                             onClick = {
                                 showMenu = false
                                 onMarkFinished()

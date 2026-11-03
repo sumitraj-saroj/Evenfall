@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="books_count">
+        <item quantity="one">%1$d book</item>
+        <item quantity="other">%1$d books</item>
+    </plurals>
+    <plurals name="chapters_count">
+        <item quantity="one">%1$d chapter</item>
+        <item quantity="other">%1$d chapters</item>
+    </plurals>
+    <plurals name="days_count">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%1$d hr</item>
+        <item quantity="other">%1$d hr</item>
+    </plurals>
+    <plurals name="minutes_count">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="seconds_count">
+        <item quantity="one">%1$d sec</item>
+        <item quantity="other">%1$d sec</item>
+    </plurals>
+</resources>

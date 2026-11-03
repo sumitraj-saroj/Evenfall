@@ -79,6 +79,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -181,7 +182,7 @@ fun PlayerScreen(
                         IconButton(onClick = onCollapse) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Collapse player",
+                                contentDescription = stringResource(R.string.cd_collapse_player),
                                 tint = bookColors.onBackground
                             )
                         }
@@ -198,7 +199,7 @@ fun PlayerScreen(
                                 IconButton(onClick = { showChapterSheet = true }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                        contentDescription = "Chapter list",
+                                        contentDescription = stringResource(R.string.cd_chapter_list),
                                         tint = bookColors.onBackground
                                     )
                                 }
@@ -215,7 +216,7 @@ fun PlayerScreen(
                                 IconButton(onClick = { showOverflowMenu = true }) {
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "More options",
+                                        contentDescription = stringResource(R.string.cd_more_options),
                                         tint = bookColors.onBackground
                                     )
                                 }
@@ -225,7 +226,7 @@ fun PlayerScreen(
                                 onDismissRequest = { showOverflowMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Save bookmark") },
+                                    text = { Text(stringResource(R.string.save_bookmark)) },
                                     leadingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null) },
                                     onClick = {
                                         viewModel.quickSaveBookmark()
@@ -234,7 +235,7 @@ fun PlayerScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Bookmarks & History") },
+                                    text = { Text(stringResource(R.string.bookmarks_and_history)) },
                                     leadingIcon = { Icon(Icons.Default.Bookmark, contentDescription = null) },
                                     onClick = {
                                         book?.let { onOpenBookmarks(it.id) }
@@ -242,7 +243,7 @@ fun PlayerScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Playback speed") },
+                                    text = { Text(stringResource(R.string.playback_speed_title)) },
                                     leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) },
                                     onClick = {
                                         showSpeedSheet = true
@@ -271,7 +272,7 @@ fun PlayerScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Playback options") },
+                                    text = { Text(stringResource(R.string.playback_options)) },
                                     leadingIcon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
                                     onClick = {
                                         showPlaybackOptionsSheet = true
@@ -884,7 +885,7 @@ fun PlayerScreen(
                         .padding(24.dp)
                         .navigationBarsPadding()
                 ) {
-                    Text("Sleep Timer", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.sleep_timer_title), fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val presets = listOf(5, 15, 30, 45, 60)
@@ -902,7 +903,7 @@ fun PlayerScreen(
                                 .padding(vertical = 4.dp)
                         ) {
                             Text(
-                                text = "$min minutes",
+                                text = pluralStringResource(R.plurals.minutes_count, min, min),
                                 modifier = Modifier.padding(14.dp),
                                 style = MaterialTheme.typography.bodyLarge
                             )
@@ -922,7 +923,7 @@ fun PlayerScreen(
                             .padding(vertical = 4.dp)
                     ) {
                         Text(
-                            text = "End of chapter",
+                            text = stringResource(R.string.end_of_chapter),
                             modifier = Modifier.padding(14.dp),
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -937,7 +938,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Turn off sleep timer", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.turn_off_sleep_timer), color = MaterialTheme.colorScheme.error)
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -958,10 +959,10 @@ fun PlayerScreen(
                         .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Playback Speed", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.playback_speed_title), fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "${String.format(Locale.US, "%.2f", state.playbackSpeed)}x",
+                        text = "${String.format(Locale.getDefault(), "%.2f", state.playbackSpeed)}x",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -1004,11 +1005,11 @@ fun PlayerScreen(
                         .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Volume Boost", fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.volume_boost_title), fontFamily = SerifFont, style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     val boostPercent = (state.volumeBoostLevel * 100).toInt()
                     Text(
-                        text = if (boostPercent == 0) "Off" else "+$boostPercent%",
+                        text = if (boostPercent == 0) stringResource(R.string.off) else "+$boostPercent%",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -1349,7 +1350,7 @@ private fun PlayerContent(
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous Chapter",
+                        contentDescription = stringResource(R.string.cd_previous_chapter),
                         tint = bookColors.onBackground
                     )
                 }
@@ -1388,7 +1389,7 @@ private fun PlayerContent(
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next Chapter",
+                        contentDescription = stringResource(R.string.cd_next_chapter),
                         tint = bookColors.onBackground
                     )
                 }
@@ -1411,7 +1412,7 @@ private fun PlayerContent(
                 .defaultMinSize(minHeight = 44.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .clickable(
-                    onClickLabel = "Undo seek",
+                    onClickLabel = stringResource(R.string.cd_undo_seek),
                     onClick = onUndoSeek
                 )
                 .padding(bottom = 6.dp)
@@ -1422,7 +1423,7 @@ private fun PlayerContent(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Undo,
-                    contentDescription = "Undo seek",
+                    contentDescription = stringResource(R.string.cd_undo_seek),
                     tint = bookColors.undoChipContent,
                     modifier = Modifier.size(14.dp)
                 )
@@ -1498,7 +1499,7 @@ private fun PlayerContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
-                    contentDescription = "Previous Chapter",
+                    contentDescription = stringResource(R.string.cd_previous_chapter),
                     tint = bookColors.onBackgroundMuted,
                     modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
                 )
@@ -1551,7 +1552,7 @@ private fun PlayerContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
-                    contentDescription = "Next Chapter",
+                    contentDescription = stringResource(R.string.cd_next_chapter),
                     tint = bookColors.onBackgroundMuted,
                     modifier = Modifier.size(if (isLandscape) 20.dp else 26.dp)
                 )
@@ -1638,7 +1639,7 @@ private fun CompactBottomToolbar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Bedtime,
-                            contentDescription = "Sleep timer active",
+                            contentDescription = stringResource(R.string.cd_sleep_timer_active),
                             tint = bookColors.onBackground,
                             modifier = Modifier.size(16.dp)
                         )
@@ -1655,7 +1656,7 @@ private fun CompactBottomToolbar(
                 IconButton(onClick = onSleepClick) {
                     Icon(
                         imageVector = Icons.Default.Bedtime,
-                        contentDescription = "Sleep timer",
+                        contentDescription = stringResource(R.string.cd_sleep_timer),
                         tint = bookColors.onBackground
                     )
                 }
@@ -1668,7 +1669,7 @@ private fun CompactBottomToolbar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(14.dp))
                     .clickable(
-                        onClickLabel = "Change playback speed",
+                        onClickLabel = stringResource(R.string.playback_speed_title),
                         onClick = onSpeedClick
                     )
             ) {
@@ -1677,7 +1678,7 @@ private fun CompactBottomToolbar(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "${String.format(Locale.US, "%.1f", state.playbackSpeed)}x",
+                        text = "${String.format(Locale.getDefault(), "%.1f", state.playbackSpeed)}x",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = bookColors.onBackground
@@ -1689,7 +1690,7 @@ private fun CompactBottomToolbar(
             IconButton(onClick = onBookmarksClick) {
                 Icon(
                     imageVector = Icons.Default.Bookmark,
-                    contentDescription = "Bookmarks and History",
+                    contentDescription = stringResource(R.string.bookmarks_and_history),
                     tint = bookColors.onBackground
                 )
             }
@@ -1699,7 +1700,7 @@ private fun CompactBottomToolbar(
                 IconButton(onClick = onMoreClick) {
                     Icon(
                         imageVector = Icons.Default.MoreHoriz,
-                        contentDescription = "Playback options",
+                        contentDescription = stringResource(R.string.playback_options),
                         tint = bookColors.onBackground
                     )
                 }
@@ -1746,35 +1747,35 @@ private fun DenseBottomToolbar(
             IconButton(onClick = onSleepClick) {
                 Icon(
                     imageVector = Icons.Default.Bedtime,
-                    contentDescription = "Sleep timer",
+                    contentDescription = stringResource(R.string.cd_sleep_timer),
                     tint = bookColors.bottomToolbarContent
                 )
             }
             IconButton(onClick = onSpeedClick) {
                 Icon(
                     imageVector = Icons.Default.Speed,
-                    contentDescription = "Playback Speed: ${state.playbackSpeed}x",
+                    contentDescription = stringResource(R.string.cd_playback_speed_format, state.playbackSpeed),
                     tint = bookColors.bottomToolbarContent
                 )
             }
             IconButton(onClick = onBookmarksClick) {
                 Icon(
                     imageVector = Icons.Default.Bookmark,
-                    contentDescription = "Bookmarks and History",
+                    contentDescription = stringResource(R.string.bookmarks_and_history),
                     tint = bookColors.bottomToolbarContent
                 )
             }
             IconButton(onClick = onSilenceToggle) {
                 Icon(
                     imageVector = Icons.Default.ContentCut,
-                    contentDescription = "Silence Skipping",
+                    contentDescription = stringResource(R.string.cd_silence_skipping),
                     tint = if (state.silenceSkippingEnabled) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.5f)
                 )
             }
             IconButton(onClick = onVolumeBoostClick) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Volume Boost",
+                    contentDescription = stringResource(R.string.cd_volume_boost),
                     tint = if (state.volumeBoostLevel > 0f) bookColors.bottomToolbarContent else bookColors.bottomToolbarContent.copy(alpha = 0.7f)
                 )
             }

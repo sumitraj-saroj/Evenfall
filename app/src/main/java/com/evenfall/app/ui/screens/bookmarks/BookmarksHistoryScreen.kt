@@ -171,7 +171,7 @@ fun BookmarksHistoryScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.cd_back)
                             )
                         }
                     },
@@ -186,7 +186,7 @@ fun BookmarksHistoryScreen(
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                    contentDescription = "Sort bookmarks"
+                                    contentDescription = stringResource(R.string.cd_sort_bookmarks)
                                 )
                             }
                             DropdownMenu(
@@ -194,28 +194,28 @@ fun BookmarksHistoryScreen(
                                 onDismissRequest = { showSortMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Position in book") },
+                                    text = { Text(stringResource(R.string.filter_position)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.POSITION)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Newest first") },
+                                    text = { Text(stringResource(R.string.filter_newest_first)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.NEWEST)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Oldest first") },
+                                    text = { Text(stringResource(R.string.filter_oldest_first)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.OLDEST)
                                         showSortMenu = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Title") },
+                                    text = { Text(stringResource(R.string.title_label)) },
                                     onClick = {
                                         viewModel.setSortOrder(BookmarkSortOrder.TITLE)
                                         showSortMenu = false
@@ -233,7 +233,7 @@ fun BookmarksHistoryScreen(
                     ExtendedFloatingActionButton(
                         onClick = { showSaveDialog = true },
                         icon = { Icon(Icons.Default.BookmarkAdd, contentDescription = null) },
-                        text = { Text("Save this moment", fontWeight = FontWeight.SemiBold) },
+                        text = { Text(stringResource(R.string.save_this_moment), fontWeight = FontWeight.SemiBold) },
                         containerColor = Color(0xFF0284C7),
                         contentColor = Color.White,
                         shape = RoundedCornerShape(20.dp),
@@ -356,7 +356,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.ALL,
                                 onClick = { viewModel.selectFilter(BookmarkType.ALL) },
-                                label = { Text("All ${uiState.bookmarkCount}") },
+                                label = { Text(stringResource(R.string.filter_all_count, uiState.bookmarkCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -364,7 +364,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.NOTE,
                                 onClick = { viewModel.selectFilter(BookmarkType.NOTE) },
-                                label = { Text("Notes ${uiState.notesCount}") },
+                                label = { Text(stringResource(R.string.filter_notes_count, uiState.notesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -372,7 +372,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.FAVORITE,
                                 onClick = { viewModel.selectFilter(BookmarkType.FAVORITE) },
-                                label = { Text("Favorites ${uiState.favoritesCount}") },
+                                label = { Text(stringResource(R.string.filter_favorites_count, uiState.favoritesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -380,7 +380,7 @@ fun BookmarksHistoryScreen(
                             FilterChip(
                                 selected = uiState.selectedFilter == BookmarkType.QUOTE,
                                 onClick = { viewModel.selectFilter(BookmarkType.QUOTE) },
-                                label = { Text("Quotes ${uiState.quotesCount}") },
+                                label = { Text(stringResource(R.string.filter_quotes_count, uiState.quotesCount)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -484,35 +484,35 @@ fun BookmarksHistoryScreen(
 
             AlertDialog(
                 onDismissRequest = { showSaveDialog = false },
-                title = { Text("Save this moment", fontFamily = SerifFont) },
+                title = { Text(stringResource(R.string.save_this_moment), fontFamily = SerifFont) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
                             value = momentTitle,
                             onValueChange = { momentTitle = it },
-                            label = { Text("Title") },
-                            placeholder = { Text("e.g. Mira's theory") },
+                            label = { Text(stringResource(R.string.title_label)) },
+                            placeholder = { Text(stringResource(R.string.placeholder_bookmark_title)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
                             value = momentNote,
                             onValueChange = { momentNote = it },
-                            label = { Text("Note (optional)") },
+                            label = { Text(stringResource(R.string.note_optional_label)) },
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Text("Type", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.type_label), style = MaterialTheme.typography.titleSmall)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             listOf(
-                                BookmarkType.BOOKMARK to "Bookmark",
-                                BookmarkType.FAVORITE to "Favorite",
-                                BookmarkType.QUOTE to "Quote",
-                                BookmarkType.NOTE to "Note"
+                                BookmarkType.BOOKMARK to stringResource(R.string.bookmark_type_bookmark),
+                                BookmarkType.FAVORITE to stringResource(R.string.bookmark_type_favorite),
+                                BookmarkType.QUOTE to stringResource(R.string.bookmark_type_quote),
+                                BookmarkType.NOTE to stringResource(R.string.bookmark_type_note)
                             ).forEach { (t, label) ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -532,12 +532,12 @@ fun BookmarksHistoryScreen(
                             showSaveDialog = false
                         }
                     ) {
-                        Text("Save")
+                        Text(stringResource(R.string.save))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showSaveDialog = false }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             )

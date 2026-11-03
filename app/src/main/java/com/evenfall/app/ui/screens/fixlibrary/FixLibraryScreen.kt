@@ -289,7 +289,7 @@ fun FixLibraryScreen(
                                 onClick = onBack,
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Back to Library", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.back_to_library), fontWeight = FontWeight.Bold)
                             }
                         }
                     }

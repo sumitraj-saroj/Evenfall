@@ -25,7 +25,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
@@ -48,6 +50,7 @@ fun WavyProgressLine(
     waveLength: Dp = 24.dp,
     modifier: Modifier = Modifier
 ) {
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val infiniteTransition = rememberInfiniteTransition(label = "waveAnimation")
     val phase by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -59,23 +62,23 @@ fun WavyProgressLine(
         label = "phase"
     )
 
-    var isDragging by remember { mutableFloatStateOf(0f) }
-
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(32.dp)
             .then(
                 if (onSeek != null) {
-                    Modifier.pointerInput(Unit) {
+                    Modifier.pointerInput(isRtl) {
                         detectTapGestures { offset ->
-                            val newProgress = (offset.x / size.width).coerceIn(0f, 1f)
+                            val rawProgress = (offset.x / size.width).coerceIn(0f, 1f)
+                            val newProgress = if (isRtl) (1f - rawProgress) else rawProgress
                             onSeek(newProgress)
                         }
-                    }.pointerInput(Unit) {
+                    }.pointerInput(isRtl) {
                         detectHorizontalDragGestures { change, _ ->
                             change.consume()
-                            val newProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            val rawProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            val newProgress = if (isRtl) (1f - rawProgress) else rawProgress
                             onSeek(newProgress)
                         }
                     }
@@ -86,51 +89,74 @@ fun WavyProgressLine(
         val height = size.height
         val centerY = height / 2f
         val currentProgress = progress.coerceIn(0f, 1f)
-        val splitX = width * currentProgress
+        val splitX = if (isRtl) width * (1f - currentProgress) else width * currentProgress
 
         val strokePx = strokeWidth.toPx()
         val ampPx = waveAmplitude.toPx()
         val lengthPx = waveLength.toPx()
 
-        // 1. Draw Inactive / Remaining Line (flat line)
-        if (splitX < width) {
-            drawLine(
-                color = inactiveColor,
-                start = Offset(splitX, centerY),
-                end = Offset(width, centerY),
-                strokeWidth = strokePx,
-                cap = StrokeCap.Round
-            )
-        }
-
-        // 2. Draw Active / Played Line (wavy if playing, flat if paused)
-        if (splitX > 0f) {
-            if (isPlaying && ampPx > 0f) {
-                val wavePath = Path()
-                wavePath.moveTo(0f, centerY)
-
-                val stepPx = 3f
-                var x = 0f
-                while (x <= splitX) {
-                    val relativeX = x / lengthPx * (2 * PI).toFloat()
-                    val y = centerY + ampPx * sin(relativeX - phase)
-                    wavePath.lineTo(x, y)
-                    x += stepPx
-                }
-                wavePath.lineTo(splitX, centerY)
-
-                drawPath(
-                    path = wavePath,
-                    color = activeColor,
-                    style = Stroke(
-                        width = strokePx,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-                )
-            } else {
+        if (!isRtl) {
+            // LTR
+            // 1. Draw Inactive / Remaining Line (flat line)
+            if (splitX < width) {
                 drawLine(
-                    color = activeColor,
+                    color = inactiveColor,
+                    start = Offset(splitX, centerY),
+                    end = Offset(width, centerY),
+                    strokeWidth = strokePx,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // 2. Draw Active / Played Line (wavy if playing, flat if paused)
+            if (splitX > 0f) {
+                if (isPlaying && ampPx > 0f) {
+                    val wavePath = Path()
+                    wavePath.moveTo(0f, centerY)
+
+                    val stepPx = 3f
+                    var x = 0f
+                    while (x <= splitX) {
+                        val relativeX = x / lengthPx * (2 * PI).toFloat()
+                        val y = centerY + ampPx * sin(relativeX - phase)
+                        wavePath.lineTo(x, y)
+                        x += stepPx
+                    }
+                    wavePath.lineTo(splitX, centerY)
+
+                    drawPath(
+                        path = wavePath,
+                        color = activeColor,
+                        style = Stroke(
+                            width = strokePx,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                } else {
+                    drawLine(
+                        color = activeColor,
+                        start = Offset(0f, centerY),
+                        end = Offset(splitX, centerY),
+                        strokeWidth = strokePx,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Draw thumb indicator at splitX
+                val thumbRadius = strokePx * 1.5f
+                drawCircle(
+                    color = thumbColor,
+                    radius = thumbRadius,
+                    center = Offset(splitX, centerY)
+                )
+            }
+        } else {
+            // RTL: Played moves from right (width) towards left (0)
+            // 1. Draw Inactive / Remaining Line (from 0 to splitX)
+            if (splitX > 0f) {
+                drawLine(
+                    color = inactiveColor,
                     start = Offset(0f, centerY),
                     end = Offset(splitX, centerY),
                     strokeWidth = strokePx,
@@ -138,13 +164,49 @@ fun WavyProgressLine(
                 )
             }
 
-            // Draw thumb indicator at splitX
-            val thumbRadius = strokePx * 1.5f
-            drawCircle(
-                color = thumbColor,
-                radius = thumbRadius,
-                center = Offset(splitX, centerY)
-            )
+            // 2. Draw Active / Played Line (from splitX to width)
+            if (splitX < width) {
+                if (isPlaying && ampPx > 0f) {
+                    val wavePath = Path()
+                    wavePath.moveTo(splitX, centerY)
+
+                    val stepPx = 3f
+                    var x = splitX
+                    while (x <= width) {
+                        val relativeX = x / lengthPx * (2 * PI).toFloat()
+                        val y = centerY + ampPx * sin(relativeX - phase)
+                        wavePath.lineTo(x, y)
+                        x += stepPx
+                    }
+                    wavePath.lineTo(width, centerY)
+
+                    drawPath(
+                        path = wavePath,
+                        color = activeColor,
+                        style = Stroke(
+                            width = strokePx,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                } else {
+                    drawLine(
+                        color = activeColor,
+                        start = Offset(splitX, centerY),
+                        end = Offset(width, centerY),
+                        strokeWidth = strokePx,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Draw thumb indicator at splitX
+                val thumbRadius = strokePx * 1.5f
+                drawCircle(
+                    color = thumbColor,
+                    radius = thumbRadius,
+                    center = Offset(splitX, centerY)
+                )
+            }
         }
     }
 }

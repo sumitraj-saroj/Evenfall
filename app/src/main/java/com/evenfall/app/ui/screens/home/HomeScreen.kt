@@ -322,7 +322,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterStatus(st, false) },
                                         label = { Text(label, fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) },
                                         colors = AssistChipDefaults.assistChipColors(
                                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                         )
@@ -334,7 +334,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterCollection(null) },
                                         label = { Text(colName, fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) },
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) },
                                         colors = AssistChipDefaults.assistChipColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                                         )
@@ -345,7 +345,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterSeriesOnly(false) },
                                         label = { Text(stringResource(R.string.filter_series_only), fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) }
                                     )
                                 }
 
@@ -353,7 +353,7 @@ fun HomeScreen(
                                     AssistChip(
                                         onClick = { viewModel.setFilterUnavailableOnly(false) },
                                         label = { Text(stringResource(R.string.filter_unavailable), fontSize = 11.sp) },
-                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp)) }
+                                        trailingIcon = { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove), modifier = Modifier.size(14.dp)) }
                                     )
                                 }
 
@@ -688,7 +688,7 @@ fun HomeScreen(
                                     if (uiState.finishedBooks.isNotEmpty()) {
                                         item {
                                             Text(
-                                                text = "Finished",
+                                                text = stringResource(R.string.status_finished),
                                                 fontFamily = SerifFont,
                                                 style = MaterialTheme.typography.titleLarge,
                                                 color = MaterialTheme.colorScheme.onSurface,
@@ -935,7 +935,7 @@ fun ContinueListeningHeroCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Hero options",
+                                contentDescription = stringResource(R.string.cd_book_options, book.displayTitle),
                                 tint = Color(0xFF6B5E4A)
                             )
                         }
@@ -1033,7 +1033,7 @@ fun ContinueListeningHeroCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$progressPercent% of book",
+                        text = stringResource(R.string.progress_percent_of_book, progressPercent),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1E3A8A)
@@ -1042,7 +1042,7 @@ fun ContinueListeningHeroCard(
                     Spacer(modifier = Modifier.weight(1f))
 
                     Text(
-                        text = "${TimeUtils.formatDuration(timeLeftMs)} left",
+                        text = stringResource(R.string.time_left_format, TimeUtils.formatDuration(timeLeftMs)),
                         fontSize = 12.sp,
                         color = Color(0xFF475569)
                     )
@@ -1059,7 +1059,7 @@ fun ContinueListeningHeroCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play ${book.displayTitle}",
+                                contentDescription = stringResource(R.string.cd_play_book, book.displayTitle),
                                 tint = Color.White,
                                 modifier = Modifier.size(28.dp)
                             )
@@ -1175,7 +1175,7 @@ fun CurrentBookRow(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Warning,
-                                    contentDescription = "Unavailable",
+                                    contentDescription = stringResource(R.string.book_unavailable_label),
                                     tint = MaterialTheme.colorScheme.onError,
                                     modifier = Modifier.size(12.dp)
                                 )
@@ -1217,7 +1217,7 @@ fun CurrentBookRow(
                     } else if (book.isFinished) {
                         val finishedDateStr = book.finishedAt?.let { TimeUtils.formatDate(it) } ?: ""
                         Text(
-                            text = if (finishedDateStr.isNotEmpty()) "Finished on $finishedDateStr" else "Finished",
+                            text = if (finishedDateStr.isNotEmpty()) stringResource(R.string.finished_on, finishedDateStr) else stringResource(R.string.status_finished),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium
@@ -1235,7 +1235,7 @@ fun CurrentBookRow(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "${TimeUtils.formatDuration(timeLeftMs)} left",
+                                text = stringResource(R.string.time_left_format, TimeUtils.formatDuration(timeLeftMs)),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
