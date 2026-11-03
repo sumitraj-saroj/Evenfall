@@ -15,6 +15,9 @@ interface ChapterDao {
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY chapterIndex ASC")
     suspend fun getChaptersForBookSync(bookId: Long): List<ChapterEntity>
 
+    @Query("SELECT * FROM chapters")
+    suspend fun getAllChaptersSync(): List<ChapterEntity>
+
     @Query("SELECT * FROM chapters WHERE bookId = :bookId AND chapterIndex = :index LIMIT 1")
     suspend fun getChapter(bookId: Long, index: Int): ChapterEntity?
 

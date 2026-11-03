@@ -37,7 +37,9 @@ data class ScannedBookPreview(
     val coverPath: String?,
     val folderUri: String,
     val identifier: String,
-    val files: List<ScannedAudioFile>
+    val files: List<ScannedAudioFile>,
+    val seriesName: String? = null,
+    val seriesOrder: Float? = null
 )
 
 data class ScannedAudioFile(
@@ -48,7 +50,9 @@ data class ScannedAudioFile(
     val durationMs: Long,
     val trackNumber: Int?,
     val coverPath: String?,
-    val album: String? = null
+    val album: String? = null,
+    val seriesName: String? = null,
+    val seriesOrder: Float? = null
 )
 
 sealed class ScanProgress {
@@ -143,7 +147,9 @@ class LibraryScanner @Inject constructor(
                 durationMs = meta.durationMs,
                 trackNumber = meta.trackNumber,
                 coverPath = meta.coverPath,
-                album = meta.album
+                album = meta.album,
+                seriesName = meta.seriesName,
+                seriesOrder = meta.seriesOrder
             )
         } catch (e: SecurityException) {
             scanIssueDao.insert(
@@ -217,7 +223,9 @@ class LibraryScanner @Inject constructor(
                             coverPath = resolvedCover,
                             folderUri = doc.uri.toString(),
                             identifier = doc.uri.toString(),
-                            files = listOf(scannedFile)
+                            files = listOf(scannedFile),
+                            seriesName = scannedFile.seriesName,
+                            seriesOrder = scannedFile.seriesOrder
                         )
                     )
                 }
@@ -326,7 +334,9 @@ class LibraryScanner @Inject constructor(
                     author = scanned.author,
                     coverUri = scanned.coverPath ?: existingBook.coverUri,
                     totalDurationMs = scanned.durationMs,
-                    fileCount = scanned.fileCount
+                    fileCount = scanned.fileCount,
+                    seriesName = existingBook.seriesName ?: scanned.seriesName,
+                    seriesOrder = existingBook.seriesOrder ?: scanned.seriesOrder
                 )
                 bookDao.update(updated)
                 existingBook.id
@@ -343,7 +353,9 @@ class LibraryScanner @Inject constructor(
                     chapterPositionMs = 0L,
                     playbackSpeed = 1.0f,
                     isFinished = false,
-                    fileCount = scanned.fileCount
+                    fileCount = scanned.fileCount,
+                    seriesName = scanned.seriesName,
+                    seriesOrder = scanned.seriesOrder
                 )
                 bookDao.insert(newBook)
             }
@@ -408,6 +420,10 @@ class LibraryScanner @Inject constructor(
             folderCandidates = folderCandidates
         ).path
 
+        val firstWithSeries = sortedFiles.firstOrNull { it.seriesName != null }
+        val seriesName = firstWithSeries?.seriesName
+        val seriesOrder = firstWithSeries?.seriesOrder
+
         return ScannedBookPreview(
             title = title,
             author = author,
@@ -416,7 +432,9 @@ class LibraryScanner @Inject constructor(
             coverPath = cover,
             folderUri = folderUri,
             identifier = folderUri,
-            files = sortedFiles
+            files = sortedFiles,
+            seriesName = seriesName,
+            seriesOrder = seriesOrder
         )
     }
 

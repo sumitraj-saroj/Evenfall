@@ -127,6 +127,11 @@ class PerformanceStressTest {
             )
         }
 
+        override suspend fun updateSeriesTag(id: Long, seriesName: String?, seriesOrder: Float?) {
+            val book = booksMap[id] ?: return
+            booksMap[id] = book.copy(seriesName = seriesName, seriesOrder = seriesOrder)
+        }
+
         override suspend fun updateFinishedStatus(id: Long, finished: Boolean, finishedAt: Long?) {
             val book = booksMap[id] ?: return
             booksMap[id] = book.copy(isFinished = finished, finishedAt = finishedAt)
@@ -162,6 +167,9 @@ class PerformanceStressTest {
 
         override suspend fun getChaptersForBookSync(bookId: Long): List<ChapterEntity> =
             chaptersMap[bookId] ?: emptyList()
+
+        override suspend fun getAllChaptersSync(): List<ChapterEntity> =
+            chaptersMap.values.flatten()
 
         override suspend fun getChapter(bookId: Long, index: Int): ChapterEntity? =
             chaptersMap[bookId]?.firstOrNull { it.chapterIndex == index }
@@ -225,6 +233,9 @@ class PerformanceStressTest {
 
         override suspend fun getBookmarksForBookSync(bookId: Long): List<BookmarkEntity> =
             bookmarks.filter { it.bookId == bookId }
+
+        override suspend fun getAllBookmarksSync(): List<BookmarkEntity> =
+            bookmarks.toList()
 
         override suspend fun transferBookmarksToBook(oldBookId: Long, newBookId: Long) {
             val transferred = bookmarks.filter { it.bookId == oldBookId }.map { it.copy(bookId = newBookId) }

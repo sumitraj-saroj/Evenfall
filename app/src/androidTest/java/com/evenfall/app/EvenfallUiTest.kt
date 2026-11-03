@@ -22,10 +22,21 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.evenfall.app.data.datastore.LibrarySortBy
 import com.evenfall.app.data.db.entity.BookEntity
+import com.evenfall.app.data.db.entity.BookmarkEntity
+import com.evenfall.app.data.db.entity.BookmarkType
+import com.evenfall.app.data.db.entity.ChapterEntity
+import com.evenfall.app.data.db.entity.CollectionEntity
 import com.evenfall.app.data.parser.TitleSanitizer
+import com.evenfall.app.data.repository.BookmarkSearchResult
+import com.evenfall.app.data.repository.ChapterSearchResult
+import com.evenfall.app.data.repository.SearchResults
 import com.evenfall.app.ui.components.MorphingPlayPauseButton
+import com.evenfall.app.ui.components.SortFilterBottomSheet
 import com.evenfall.app.ui.screens.home.ContinueListeningHeroCard
+import com.evenfall.app.ui.screens.home.FilterState
+import com.evenfall.app.ui.screens.home.SearchResultsGroupedView
 import com.evenfall.app.ui.theme.EvenfallTheme
 import com.evenfall.app.util.TimeUtils
 import kotlinx.coroutines.delay
@@ -223,5 +234,143 @@ class EvenfallUiTest {
         org.junit.Assert.assertTrue(playClicked)
         composeTestRule.onNodeWithTag("mini_player").performClick()
         org.junit.Assert.assertTrue(expanded)
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Test
+    fun testSortFilterBottomSheetAppliesSelection() {
+        var appliedSort: LibrarySortBy? = null
+        var appliedFilters: FilterState? = null
+
+        composeTestRule.setContent {
+            EvenfallTheme {
+                SortFilterBottomSheet(
+                    currentSortBy = LibrarySortBy.RECENTLY_PLAYED,
+                    currentSortAscending = false,
+                    currentFilterState = FilterState(statuses = setOf("NOT_STARTED")),
+                    collections = listOf(
+                        CollectionEntity(id = 1, name = "Sci-Fi", orderIndex = 0),
+                        CollectionEntity(id = 2, name = "Fantasy", orderIndex = 1)
+                    ),
+                    onApplySortAndFilter = { sort, _, filters ->
+                        appliedSort = sort
+                        appliedFilters = filters
+                    },
+                    onResetFilters = {},
+                    onDismiss = {}
+                )
+            }
+        }
+
+        // Verify elements displayed
+        composeTestRule.onNodeWithText("Sort & Filter").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Title").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Sci-Fi").assertIsDisplayed()
+
+        // Select Title sort option
+        composeTestRule.onNodeWithText("Title").performClick()
+        composeTestRule.waitForIdle()
+
+        // Click Apply
+        composeTestRule.onNodeWithText("Apply").performClick()
+        composeTestRule.waitForIdle()
+
+        org.junit.Assert.assertEquals(LibrarySortBy.TITLE, appliedSort)
+        org.junit.Assert.assertNotNull(appliedFilters)
+    }
+
+    @Test
+    fun testSearchResultsGroupedViewNavigation() {
+        val testBook = BookEntity(
+            id = 42L,
+            title = "The Way of Kings",
+            author = "Brandon Sanderson",
+            folderIdentifier = "wok",
+            folderUri = "content://wok",
+            totalDurationMs = 150_000_000L,
+            dateAdded = 1000L
+        )
+
+        val testChapter = ChapterEntity(
+            id = 101L,
+            bookId = 42L,
+            chapterIndex = 0,
+            title = "Prelude to the Stormlight Archive",
+            fileUri = "content://wok/prelude.mp3",
+            durationMs = 1_800_000L,
+            startMs = 0L
+        )
+
+        val testBookmark = BookmarkEntity(
+            id = 201L,
+            bookId = 42L,
+            chapterIndex = 0,
+            chapterTitle = "Prelude",
+            positionMs = 60_000L,
+            bookProgressFraction = 0.01f,
+            title = "Honor is Dead",
+            note = "Kaladin speaks the words",
+            type = BookmarkType.QUOTE
+        )
+
+        val searchResults = SearchResults(
+            books = listOf(testBook),
+            chapters = listOf(
+                ChapterSearchResult(
+                    chapter = testChapter,
+                    book = testBook,
+                    displayTitle = testChapter.displayTitle,
+                    displaySubtitle = testBook.displayTitle,
+                    chapterIndex = testChapter.chapterIndex,
+                    startMs = testChapter.startMs
+                )
+            ),
+            bookmarks = listOf(
+                BookmarkSearchResult(
+                    bookmark = testBookmark,
+                    book = testBook,
+                    displayTitle = testBookmark.title,
+                    displaySubtitle = "${testBook.displayTitle} • Prelude",
+                    snippet = testBookmark.note ?: "",
+                    positionMs = testBookmark.positionMs,
+                    chapterIndex = testBookmark.chapterIndex
+                )
+            ),
+            totalCount = 3
+        )
+
+        var openedBook: BookEntity? = null
+        var openedChapter: ChapterSearchResult? = null
+        var openedBookmark: BookmarkSearchResult? = null
+
+        composeTestRule.setContent {
+            EvenfallTheme {
+                SearchResultsGroupedView(
+                    searchQuery = "Kaladin",
+                    results = searchResults,
+                    onOpenBook = { openedBook = it },
+                    onOpenBookmark = { openedBookmark = it },
+                    onOpenChapter = { openedChapter = it }
+                )
+            }
+        }
+
+        // Verify sections
+        composeTestRule.onNodeWithText("Books (1)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Chapters (1)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Bookmarks & Notes (1)").assertIsDisplayed()
+
+        // Verify items
+        composeTestRule.onNodeWithText("The Way of Kings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Prelude to the Stormlight Archive").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Honor is Dead").assertIsDisplayed()
+
+        // Click chapter result and verify navigation callback
+        composeTestRule.onNodeWithText("Prelude to the Stormlight Archive").performClick()
+        org.junit.Assert.assertEquals(101L, openedChapter?.chapter?.id)
+
+        // Click bookmark result and verify navigation callback
+        composeTestRule.onNodeWithText("Honor is Dead").performClick()
+        org.junit.Assert.assertEquals(201L, openedBookmark?.bookmark?.id)
     }
 }

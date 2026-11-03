@@ -63,6 +63,10 @@ class PlaybackManager @Inject constructor(
     private var positionTickerJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var autoMarkFinishedEnabled: Boolean = true
+    private var autoPlayNextInSeriesEnabled: Boolean = false
+
+    private val _nextInSeriesPrompt = MutableStateFlow<BookEntity?>(null)
+    val nextInSeriesPrompt = _nextInSeriesPrompt.asStateFlow()
 
     private var lastPauseTimestamp: Long = 0L
     private var interruptionStartTimestamp: Long = 0L
@@ -76,6 +80,7 @@ class PlaybackManager @Inject constructor(
         startPositionTicker()
         restoreLastPlayedBookIfAvailable()
         observeAutoMarkPreference()
+        observeAutoPlayNextPreference()
     }
 
     private fun observeAutoMarkPreference() {
@@ -84,6 +89,24 @@ class PlaybackManager @Inject constructor(
                 autoMarkFinishedEnabled = enabled
             }
         }
+    }
+
+    private fun observeAutoPlayNextPreference() {
+        scope.launch {
+            preferencesManager.autoPlayNextInSeries.collect { enabled ->
+                autoPlayNextInSeriesEnabled = enabled
+            }
+        }
+    }
+
+    fun dismissNextInSeriesPrompt() {
+        _nextInSeriesPrompt.value = null
+    }
+
+    fun playNextInSeries(nextBook: BookEntity) {
+        _nextInSeriesPrompt.value = null
+        loadBook(nextBook.id)
+        play()
     }
 
     private fun restoreLastPlayedBookIfAvailable() {
@@ -155,6 +178,61 @@ class PlaybackManager @Inject constructor(
             }
 
             exoPlayer.setPlaybackSpeed(book.playbackSpeed)
+
+            if (autoPlay) {
+                play()
+            }
+        }
+    }
+
+    fun loadBookAndSeek(bookId: Long, chapterIndex: Int, positionMs: Long, autoPlay: Boolean = false) {
+        scope.launch {
+            val book = bookDao.getBookByIdSync(bookId) ?: return@launch
+            val chapters = chapterDao.getChaptersForBookSync(bookId)
+            val validChapterIdx = chapterIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0))
+            val targetChapter = chapters.getOrNull(validChapterIdx)
+
+            val clampedChapterPos = if (targetChapter != null && targetChapter.durationMs > 0L) {
+                positionMs.coerceIn(0L, targetChapter.durationMs)
+            } else {
+                positionMs.coerceAtLeast(0L)
+            }
+
+            val totalPos = (targetChapter?.startMs ?: 0L) + clampedChapterPos
+
+            _playbackState.value = _playbackState.value.copy(
+                currentBook = book,
+                chapters = chapters,
+                currentChapter = targetChapter,
+                playbackSpeed = book.playbackSpeed,
+                chapterPositionMs = clampedChapterPos,
+                chapterDurationMs = targetChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
+                totalPositionMs = totalPos,
+                totalDurationMs = book.totalDurationMs,
+                isMiniPlayerDismissed = false
+            )
+
+            // Setup ExoPlayer MediaItem
+            if (targetChapter != null && targetChapter.fileUri.startsWith("content://")) {
+                try {
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(targetChapter.fileUri))
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(book.title)
+                                .setArtist(book.author)
+                                .setDisplayTitle(targetChapter.title)
+                                .build()
+                        )
+                        .build()
+                    exoPlayer.setMediaItem(mediaItem)
+                    exoPlayer.prepare()
+                    exoPlayer.seekTo(clampedChapterPos)
+                } catch (_: Exception) {}
+            }
+
+            exoPlayer.setPlaybackSpeed(book.playbackSpeed)
+            saveCurrentPosition()
 
             if (autoPlay) {
                 play()
@@ -343,9 +421,38 @@ class PlaybackManager @Inject constructor(
                         )
                         _playbackState.value = _playbackState.value.copy(currentBook = finishedBook)
                         bookDao.update(finishedBook)
+                        checkNextInSeries(book)
                     } else {
                         bookDao.update(book.copy(currentPositionMs = book.totalDurationMs))
                     }
+                }
+            }
+        }
+    }
+
+    private suspend fun checkNextInSeries(book: BookEntity) {
+        val seriesName = book.displaySeriesName
+        if (!seriesName.isNullOrBlank()) {
+            val allBooks = bookDao.getAllBooksSync()
+            val seriesBooks = allBooks
+                .filter { it.displaySeriesName.equals(seriesName, ignoreCase = true) }
+                .sortedWith(compareBy({ it.displaySeriesOrder ?: Float.MAX_VALUE }, { it.id }))
+
+            val currentOrder = book.displaySeriesOrder
+            val nextBook = if (currentOrder != null) {
+                seriesBooks.firstOrNull { (it.displaySeriesOrder ?: 0f) > currentOrder && it.id != book.id }
+            } else {
+                val idx = seriesBooks.indexOfFirst { it.id == book.id }
+                if (idx != -1 && idx < seriesBooks.size - 1) seriesBooks[idx + 1] else null
+            }
+
+            if (nextBook != null && !nextBook.isFinished) {
+                if (autoPlayNextInSeriesEnabled) {
+                    _nextInSeriesPrompt.value = nextBook
+                    loadBook(nextBook.id)
+                    play()
+                } else {
+                    _nextInSeriesPrompt.value = nextBook
                 }
             }
         }

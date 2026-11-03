@@ -34,7 +34,8 @@ class LibraryRepository @Inject constructor(
     private val bookmarkDao: BookmarkDao,
     private val historyDao: HistoryDao,
     private val libraryScanner: LibraryScanner,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val searchRepository: SearchRepository
 ) {
     fun getAllBooks(): Flow<List<BookEntity>> = bookDao.getAllBooks()
 
@@ -189,6 +190,9 @@ class LibraryRepository @Inject constructor(
                     }
                 }
             }
+            try {
+                searchRepository.rebuildSearchIndex()
+            } catch (_: Exception) {}
             _scanProgress.value = null
             Result.success(totalBooksFound)
         } catch (e: Exception) {

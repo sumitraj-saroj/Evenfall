@@ -69,8 +69,8 @@ interface BookDao {
         SET titleOverride = :titleOverride,
             authorOverride = :authorOverride,
             narratorOverride = :narratorOverride,
-            seriesName = :seriesName,
-            seriesOrder = :seriesOrder,
+            seriesNameOverride = :seriesName,
+            seriesOrderOverride = :seriesOrder,
             coverOverrideUri = :coverOverrideUri
         WHERE id = :id
     """)
@@ -89,12 +89,15 @@ interface BookDao {
         SET titleOverride = NULL,
             authorOverride = NULL,
             narratorOverride = NULL,
-            seriesName = NULL,
-            seriesOrder = NULL,
+            seriesNameOverride = NULL,
+            seriesOrderOverride = NULL,
             coverOverrideUri = NULL
         WHERE id = :id
     """)
     suspend fun resetMetadataOverrides(id: Long)
+
+    @Query("UPDATE books SET seriesName = :seriesName, seriesOrder = :seriesOrder WHERE id = :id")
+    suspend fun updateSeriesTag(id: Long, seriesName: String?, seriesOrder: Float?)
 
     @Query("UPDATE books SET isFinished = :finished, finishedAt = :finishedAt WHERE id = :id")
     suspend fun updateFinishedStatus(id: Long, finished: Boolean, finishedAt: Long?)

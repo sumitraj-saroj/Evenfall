@@ -82,6 +82,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.R
 import com.evenfall.app.data.db.entity.ChapterEntity
 import com.evenfall.app.playback.PlaybackState
+import com.evenfall.app.ui.components.AddToCollectionDialog
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.CircularSkipButton
 import com.evenfall.app.ui.components.DashedSegmentedBar
@@ -117,6 +118,9 @@ fun PlayerScreen(
     var showVolumeBoostSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showEditDetailsDialog by remember { mutableStateOf(false) }
+    var showAddToCollectionDialog by remember { mutableStateOf(false) }
+    val allCollections by viewModel.allCollections.collectAsState(initial = emptyList())
+    var currentBookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var editingChapter by remember { mutableStateOf<ChapterEntity?>(null) }
 
     // Auto-dismiss undo seek chip after 8 seconds or when tapped
@@ -239,6 +243,19 @@ fun PlayerScreen(
                                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                                     onClick = {
                                         showEditDetailsDialog = true
+                                        showOverflowMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.add_to_collection)) },
+                                    leadingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null) },
+                                    onClick = {
+                                        book?.let { b ->
+                                            viewModel.getCollectionsForBook(b.id) { ids ->
+                                                currentBookCollectionIds = ids
+                                                showAddToCollectionDialog = true
+                                            }
+                                        }
                                         showOverflowMenu = false
                                     }
                                 )
@@ -720,6 +737,22 @@ fun PlayerScreen(
                     viewModel.updateChapterTitle(editingChapter!!.id, newTitle)
                     editingChapter = null
                 }
+            )
+        }
+
+        if (showAddToCollectionDialog && book != null) {
+            AddToCollectionDialog(
+                book = book,
+                allCollections = allCollections,
+                currentCollectionIds = currentBookCollectionIds,
+                onSaveCollections = { bookId, selectedIds ->
+                    viewModel.setCollectionsForBook(bookId, selectedIds)
+                    showAddToCollectionDialog = false
+                },
+                onCreateCollection = { name ->
+                    viewModel.createCollection(name)
+                },
+                onDismiss = { showAddToCollectionDialog = false }
             )
         }
     }
