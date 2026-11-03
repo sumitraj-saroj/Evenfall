@@ -166,4 +166,76 @@
     <string name="search_bookmarks_title">Bookmarks &amp; Notes</string>
     <string name="search_chapters_title">Chapters</string>
     <string name="search_books_title">Books</string>
+
+    <!-- Smarter Listening: Per-book Overrides & Voice Clarity -->
+    <string name="this_book_section">This book</string>
+    <string name="using_defaults">Using defaults</string>
+    <string name="custom_overrides_active">Custom overrides active</string>
+    <string name="reset_to_defaults">Reset to default</string>
+    <string name="book_speed">Speed</string>
+    <string name="book_skip_backward">Skip backward</string>
+    <string name="book_skip_forward">Skip forward</string>
+    <string name="book_silence_skipping">Silence skipping</string>
+    <string name="book_volume_boost">Volume boost</string>
+    <string name="voice_section">Voice</string>
+    <string name="mono_downmix">Mono downmix</string>
+    <string name="mono_downmix_desc">Combine channels for single-earbud listening</string>
+    <string name="loudness_normalization">Loudness normalization</string>
+    <string name="loudness_normalization_desc">Normalize volume for uneven narration</string>
+    <string name="voice_boost">Voice boost</string>
+    <string name="voice_boost_desc">Speech-friendly EQ cutting low rumble and boosting mid clarity</string>
+    <string name="voice_boost_off">Off</string>
+    <string name="voice_boost_light">Light</string>
+    <string name="voice_boost_strong">Strong</string>
+    <string name="advanced_section">Advanced</string>
+
+    <!-- Smart Resume & Welcome Back -->
+    <string name="smart_resume_title">Smart resume auto-rewind</string>
+    <string name="smart_resume_desc">Rewind slightly based on how long playback was paused</string>
+    <string name="welcome_back_title">Welcome back!</string>
+    <string name="welcome_back_subtitle">Last listened: %1$s</string>
+    <string name="rewind_to_chapter_start">Rewind to chapter start</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- Headset Button Controls -->
+    <string name="controls_title">Controls</string>
+    <string name="headset_controls_title">Headset &amp; Bluetooth controls</string>
+    <string name="headset_double_press">Double-press</string>
+    <string name="headset_triple_press">Triple-press</string>
+    <string name="headset_long_press">Long-press</string>
+    <string name="action_next_chapter">Next chapter</string>
+    <string name="action_prev_chapter">Previous chapter</string>
+    <string name="action_skip_forward">Skip forward</string>
+    <string name="action_skip_back">Skip backward</string>
+    <string name="action_save_bookmark">Save bookmark</string>
+    <string name="action_toggle_sleep">Toggle sleep timer</string>
+    <string name="action_change_speed">Change speed (+0.1x)</string>
+    <string name="action_none">None</string>
+
+    <!-- Bluetooth Auto-Resume -->
+    <string name="bluetooth_autoresume_title">Auto-resume on Bluetooth / Car connect</string>
+    <string name="bluetooth_autoresume_desc">Resume playback when chosen Bluetooth audio device or car connects</string>
+    <string name="bluetooth_permission_rationale">Evenfall needs Bluetooth permission to detect when your headphones or car connect so it can safely auto-resume playback.</string>
+    <string name="bluetooth_permission_denied">Bluetooth permission was denied. Auto-resume remains disabled.</string>
+    <string name="bluetooth_devices_title">Trigger devices</string>
+    <string name="bluetooth_all_devices">Any audio device</string>
+    <string name="grant_permission">Grant permission</string>
+
+    <!-- Bedtime Schedule -->
+    <string name="bedtime_title">Bedtime sleep timer</string>
+    <string name="bedtime_desc">Automatically start a timer or prompt when listening at night</string>
+    <string name="bedtime_start_time">Bedtime start</string>
+    <string name="bedtime_duration">Duration</string>
+    <string name="bedtime_days">Active days</string>
+    <string name="bedtime_auto_start">Auto-start timer</string>
+    <string name="bedtime_prompt_mode">Show prompt</string>
+    <string name="bedtime_prompt_title">Bedtime Sleep Timer</string>
+    <string name="bedtime_prompt_msg">It\'s bedtime. Would you like to start a %1$d minute sleep timer?</string>
+    <string name="start_timer">Start timer</string>
+
+    <!-- Quick Controls & Player Gestures -->
+    <string name="adjust_skip_amount">Adjust skip amount</string>
+    <string name="player_gestures_title">Player gestures</string>
+    <string name="player_gestures_desc">Double-tap cover to play/pause, swipe down to collapse player</string>
+    <string name="skip_seconds_preview">%1$d seconds</string>
 </resources>

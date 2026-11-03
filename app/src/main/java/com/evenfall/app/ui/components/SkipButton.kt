@@ -1,12 +1,28 @@
 package com.evenfall.app.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -21,21 +37,27 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.evenfall.app.ui.theme.SerifFont
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Skip rewind/forward button with curved circular arrow and seconds label matching Screenshots 2 & 3.
+ * Skip rewind/forward button with curved circular arrow and seconds label.
+ * Supports click and long-press for rapid adjustment.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CircularSkipButton(
     seconds: Int,
     isForward: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     size: Dp = 58.dp,
     containerColor: Color = Color(0xFFF7D171),
     contentColor: Color = Color(0xFF5A350D)
@@ -45,12 +67,14 @@ fun CircularSkipButton(
             .size(size)
             .clip(CircleShape)
             .background(containerColor)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = true),
                 role = Role.Button,
                 onClickLabel = if (isForward) "Forward $seconds seconds" else "Rewind $seconds seconds",
-                onClick = onClick
+                onLongClickLabel = if (onLongClick != null) "Adjust skip duration" else null,
+                onClick = onClick,
+                onLongClick = onLongClick
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -110,4 +134,73 @@ fun CircularSkipButton(
             )
         }
     }
+}
+
+@Composable
+fun QuickSkipAdjustDialog(
+    isForward: Boolean,
+    currentSeconds: Int,
+    onSecondsChange: (Int) -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Done")
+            }
+        },
+        title = {
+            Text(
+                text = if (isForward) "Skip Forward Amount" else "Skip Backward Amount",
+                fontFamily = SerifFont,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "$currentSeconds seconds",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Slider(
+                    value = currentSeconds.toFloat(),
+                    onValueChange = { onSecondsChange(it.toInt()) },
+                    valueRange = 5f..120f,
+                    steps = 22
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Presets row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf(10, 15, 20, 30, 45, 60).forEach { sec ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (currentSeconds == sec) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.clickable { onSecondsChange(sec) }
+                        ) {
+                            Text(
+                                text = "${sec}s",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                fontSize = 12.sp,
+                                fontWeight = if (currentSeconds == sec) FontWeight.Bold else FontWeight.Normal,
+                                color = if (currentSeconds == sec) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
 }

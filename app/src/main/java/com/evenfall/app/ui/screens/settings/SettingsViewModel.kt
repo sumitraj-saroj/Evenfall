@@ -57,7 +57,18 @@ data class SettingsUiState(
     val restoreErrorMessage: String? = null,
     val compactPlayer: Boolean = true,
     val autoMarkFinished: Boolean = true,
-    val autoPlayNextInSeries: Boolean = false
+    val autoPlayNextInSeries: Boolean = false,
+    val headsetDoublePress: String = "SKIP_FORWARD",
+    val headsetTriplePress: String = "SKIP_BACK",
+    val headsetLongPress: String = "TOGGLE_SLEEP_TIMER",
+    val autoResumeBluetoothEnabled: Boolean = false,
+    val bedtimeEnabled: Boolean = false,
+    val bedtimeStartHour: Int = 22,
+    val bedtimeStartMinute: Int = 0,
+    val bedtimeDurationMinutes: Int = 30,
+    val bedtimeDays: Set<String> = setOf("1", "2", "3", "4", "5", "6", "7"),
+    val bedtimeAutoStart: Boolean = true,
+    val playerGesturesEnabled: Boolean = true
 )
 
 private data class ListeningPrefs(
@@ -66,7 +77,18 @@ private data class ListeningPrefs(
     val shake: Boolean,
     val compact: Boolean,
     val autoMarkFinished: Boolean,
-    val autoPlayNextInSeries: Boolean
+    val autoPlayNextInSeries: Boolean,
+    val headsetDouble: String,
+    val headsetTriple: String,
+    val headsetLong: String,
+    val autoResumeBt: Boolean,
+    val bedtimeEnabled: Boolean,
+    val bedtimeHour: Int,
+    val bedtimeMinute: Int,
+    val bedtimeDuration: Int,
+    val bedtimeDays: Set<String>,
+    val bedtimeAutoStart: Boolean,
+    val playerGestures: Boolean
 )
 
 private data class BackupStateHolder(
@@ -115,9 +137,40 @@ class SettingsViewModel @Inject constructor(
     private val listeningFlow = combine(
         combine(preferencesManager.skipAmountSeconds, preferencesManager.autoRewindEnabled) { s, r -> s to r },
         combine(preferencesManager.shakeToExtendEnabled, preferencesManager.compactPlayer) { sh, c -> sh to c },
-        combine(preferencesManager.autoMarkFinished, preferencesManager.autoPlayNextInSeries) { m, p -> m to p }
-    ) { (skip, autoRewind), (shake, compact), (autoMark, autoPlayNext) ->
-        ListeningPrefs(skip, autoRewind, shake, compact, autoMark, autoPlayNext)
+        combine(preferencesManager.autoMarkFinished, preferencesManager.autoPlayNextInSeries) { m, p -> m to p },
+        combine(preferencesManager.headsetDoublePressAction, preferencesManager.headsetTriplePressAction, preferencesManager.headsetLongPressAction) { d, t, l -> Triple(d, t, l) },
+        combine(
+            preferencesManager.autoResumeBluetoothEnabled,
+            preferencesManager.bedtimeEnabled,
+            preferencesManager.bedtimeStartHour,
+            preferencesManager.bedtimeStartMinute,
+            preferencesManager.bedtimeDurationMinutes
+        ) { bt, bed, h, m, dur -> listOf(bt, bed, h, m, dur) }
+    ) { (skip, autoRewind), (shake, compact), (autoMark, autoPlayNext), headsetTriple, bedtimeList ->
+        val bt = bedtimeList[0] as Boolean
+        val bed = bedtimeList[1] as Boolean
+        val h = bedtimeList[2] as Int
+        val m = bedtimeList[3] as Int
+        val dur = bedtimeList[4] as Int
+        ListeningPrefs(
+            skip = skip,
+            autoRewind = autoRewind,
+            shake = shake,
+            compact = compact,
+            autoMarkFinished = autoMark,
+            autoPlayNextInSeries = autoPlayNext,
+            headsetDouble = headsetTriple.first,
+            headsetTriple = headsetTriple.second,
+            headsetLong = headsetTriple.third,
+            autoResumeBt = bt,
+            bedtimeEnabled = bed,
+            bedtimeHour = h,
+            bedtimeMinute = m,
+            bedtimeDuration = dur,
+            bedtimeDays = setOf("1", "2", "3", "4", "5", "6", "7"),
+            bedtimeAutoStart = true,
+            playerGestures = true
+        )
     }
 
     private val backupStateFlow = combine(
@@ -164,6 +217,17 @@ class SettingsViewModel @Inject constructor(
             compactPlayer = listening.compact,
             autoMarkFinished = listening.autoMarkFinished,
             autoPlayNextInSeries = listening.autoPlayNextInSeries,
+            headsetDoublePress = listening.headsetDouble,
+            headsetTriplePress = listening.headsetTriple,
+            headsetLongPress = listening.headsetLong,
+            autoResumeBluetoothEnabled = listening.autoResumeBt,
+            bedtimeEnabled = listening.bedtimeEnabled,
+            bedtimeStartHour = listening.bedtimeHour,
+            bedtimeStartMinute = listening.bedtimeMinute,
+            bedtimeDurationMinutes = listening.bedtimeDuration,
+            bedtimeDays = listening.bedtimeDays,
+            bedtimeAutoStart = listening.bedtimeAutoStart,
+            playerGesturesEnabled = listening.playerGestures,
             libraryFolders = folders,
             backupFolderUri = folder,
             lastBackupTimestamp = lastBackup,
@@ -218,6 +282,50 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoPlayNextInSeries(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setAutoPlayNextInSeries(enabled) }
+    }
+
+    fun setHeadsetDoublePress(action: String) {
+        viewModelScope.launch { preferencesManager.setHeadsetDoublePressAction(action) }
+    }
+
+    fun setHeadsetTriplePress(action: String) {
+        viewModelScope.launch { preferencesManager.setHeadsetTriplePressAction(action) }
+    }
+
+    fun setHeadsetLongPress(action: String) {
+        viewModelScope.launch { preferencesManager.setHeadsetLongPressAction(action) }
+    }
+
+    fun setAutoResumeBluetooth(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setAutoResumeBluetoothEnabled(enabled) }
+    }
+
+    fun setBedtimeEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setBedtimeEnabled(enabled) }
+    }
+
+    fun setBedtimeStartHour(hour: Int) {
+        viewModelScope.launch { preferencesManager.setBedtimeStartHour(hour) }
+    }
+
+    fun setBedtimeStartMinute(minute: Int) {
+        viewModelScope.launch { preferencesManager.setBedtimeStartMinute(minute) }
+    }
+
+    fun setBedtimeDurationMinutes(minutes: Int) {
+        viewModelScope.launch { preferencesManager.setBedtimeDurationMinutes(minutes) }
+    }
+
+    fun setBedtimeDays(days: Set<String>) {
+        viewModelScope.launch { preferencesManager.setBedtimeDays(days) }
+    }
+
+    fun setBedtimeAutoStart(autoStart: Boolean) {
+        viewModelScope.launch { preferencesManager.setBedtimeAutoStart(autoStart) }
+    }
+
+    fun setPlayerGesturesEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setPlayerGesturesEnabled(enabled) }
     }
 
     fun rescanLibrary() {

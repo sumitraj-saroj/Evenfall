@@ -1,6 +1,7 @@
 package com.evenfall.app.playback
 
 import android.content.Context
+import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import androidx.annotation.OptIn
@@ -8,10 +9,12 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import com.evenfall.app.data.datastore.PreferencesManager
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
@@ -32,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,7 +53,23 @@ class PlaybackManager @Inject constructor(
     private val _playbackState = MutableStateFlow(PlaybackState())
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
-    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context).build().apply {
+    val monoAudioProcessor = MonoDownmixAudioProcessor()
+
+    private val renderersFactory = object : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean
+        ): AudioSink {
+            return DefaultAudioSink.Builder(context)
+                .setAudioProcessors(arrayOf(monoAudioProcessor))
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .build()
+        }
+    }
+
+    val exoPlayer: ExoPlayer = ExoPlayer.Builder(context, renderersFactory).build().apply {
         setAudioAttributes(
             AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -60,6 +80,9 @@ class PlaybackManager @Inject constructor(
     }
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var equalizer: Equalizer? = null
+    private var lastAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
+
     private var positionTickerJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var autoMarkFinishedEnabled: Boolean = true
@@ -69,7 +92,7 @@ class PlaybackManager @Inject constructor(
     val nextInSeriesPrompt = _nextInSeriesPrompt.asStateFlow()
 
     private var lastPauseTimestamp: Long = 0L
-    private var interruptionStartTimestamp: Long = 0L
+    private var lastBedtimeTriggerDate: String = ""
 
     private val shakeDetector = ShakeDetector(context) {
         onDeviceShook()
@@ -81,6 +104,7 @@ class PlaybackManager @Inject constructor(
         restoreLastPlayedBookIfAvailable()
         observeAutoMarkPreference()
         observeAutoPlayNextPreference()
+        observeGlobalSettings()
     }
 
     private fun observeAutoMarkPreference() {
@@ -95,6 +119,45 @@ class PlaybackManager @Inject constructor(
         scope.launch {
             preferencesManager.autoPlayNextInSeries.collect { enabled ->
                 autoPlayNextInSeriesEnabled = enabled
+            }
+        }
+    }
+
+    private fun observeGlobalSettings() {
+        // When global settings change, re-apply for current book without overwriting overrides
+        scope.launch {
+            preferencesManager.defaultPlaybackSpeed.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.skipAmountSeconds.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.silenceSkippingEnabled.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.volumeBoostLevel.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.globalMonoDownmix.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.globalLoudnessNormalization.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
+            }
+        }
+        scope.launch {
+            preferencesManager.globalVoiceBoostPreset.collect {
+                _playbackState.value.currentBook?.let { applyEffectiveSettingsForBook(it) }
             }
         }
     }
@@ -125,6 +188,7 @@ class PlaybackManager @Inject constructor(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
                 if (isPlaying) {
+                    setupAudioEffects()
                     handlePlaybackResumed()
                 } else {
                     handlePlaybackPaused()
@@ -132,7 +196,9 @@ class PlaybackManager @Inject constructor(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) {
+                if (state == Player.STATE_READY) {
+                    setupAudioEffects()
+                } else if (state == Player.STATE_ENDED) {
                     onChapterEnded()
                 }
             }
@@ -146,16 +212,20 @@ class PlaybackManager @Inject constructor(
             val currentChapterIdx = book.currentChapterIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0))
             val currentChapter = chapters.getOrNull(currentChapterIdx)
 
+            val isLongGap = book.lastPlayedTimestamp > 0L &&
+                    SmartResumeTiers.isLongGap(System.currentTimeMillis() - book.lastPlayedTimestamp)
+
             _playbackState.value = _playbackState.value.copy(
                 currentBook = book,
                 chapters = chapters,
                 currentChapter = currentChapter,
-                playbackSpeed = book.playbackSpeed,
                 chapterPositionMs = book.chapterPositionMs,
                 chapterDurationMs = currentChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
                 totalPositionMs = book.currentPositionMs,
                 totalDurationMs = book.totalDurationMs,
-                isMiniPlayerDismissed = false
+                isMiniPlayerDismissed = false,
+                showWelcomeBackCard = isLongGap,
+                welcomeBackChapterTitle = if (isLongGap) currentChapter?.title else null
             )
 
             // Setup ExoPlayer MediaItem
@@ -165,8 +235,8 @@ class PlaybackManager @Inject constructor(
                         .setUri(Uri.parse(currentChapter.fileUri))
                         .setMediaMetadata(
                             MediaMetadata.Builder()
-                                .setTitle(book.title)
-                                .setArtist(book.author)
+                                .setTitle(book.displayTitle)
+                                .setArtist(book.displayAuthor)
                                 .setDisplayTitle(currentChapter.title)
                                 .build()
                         )
@@ -177,7 +247,7 @@ class PlaybackManager @Inject constructor(
                 } catch (_: Exception) {}
             }
 
-            exoPlayer.setPlaybackSpeed(book.playbackSpeed)
+            applyEffectiveSettingsForBook(book)
 
             if (autoPlay) {
                 play()
@@ -199,17 +269,20 @@ class PlaybackManager @Inject constructor(
             }
 
             val totalPos = (targetChapter?.startMs ?: 0L) + clampedChapterPos
+            val isLongGap = book.lastPlayedTimestamp > 0L &&
+                    SmartResumeTiers.isLongGap(System.currentTimeMillis() - book.lastPlayedTimestamp)
 
             _playbackState.value = _playbackState.value.copy(
                 currentBook = book,
                 chapters = chapters,
                 currentChapter = targetChapter,
-                playbackSpeed = book.playbackSpeed,
                 chapterPositionMs = clampedChapterPos,
                 chapterDurationMs = targetChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
                 totalPositionMs = totalPos,
                 totalDurationMs = book.totalDurationMs,
-                isMiniPlayerDismissed = false
+                isMiniPlayerDismissed = false,
+                showWelcomeBackCard = isLongGap,
+                welcomeBackChapterTitle = if (isLongGap) targetChapter?.title else null
             )
 
             // Setup ExoPlayer MediaItem
@@ -219,8 +292,8 @@ class PlaybackManager @Inject constructor(
                         .setUri(Uri.parse(targetChapter.fileUri))
                         .setMediaMetadata(
                             MediaMetadata.Builder()
-                                .setTitle(book.title)
-                                .setArtist(book.author)
+                                .setTitle(book.displayTitle)
+                                .setArtist(book.displayAuthor)
                                 .setDisplayTitle(targetChapter.title)
                                 .build()
                         )
@@ -231,7 +304,7 @@ class PlaybackManager @Inject constructor(
                 } catch (_: Exception) {}
             }
 
-            exoPlayer.setPlaybackSpeed(book.playbackSpeed)
+            applyEffectiveSettingsForBook(book)
             saveCurrentPosition()
 
             if (autoPlay) {
@@ -240,21 +313,70 @@ class PlaybackManager @Inject constructor(
         }
     }
 
+    private fun applyEffectiveSettingsForBook(book: BookEntity) {
+        scope.launch {
+            val globalDefaultSpeed = preferencesManager.defaultPlaybackSpeed.first()
+            val globalSkipSec = preferencesManager.skipAmountSeconds.first()
+            val globalSilenceSkipping = preferencesManager.silenceSkippingEnabled.first()
+            val globalVolumeBoost = preferencesManager.volumeBoostLevel.first()
+            val globalMono = preferencesManager.globalMonoDownmix.first()
+            val globalLoudness = preferencesManager.globalLoudnessNormalization.first()
+            val globalVoiceBoost = preferencesManager.globalVoiceBoostPreset.first()
+
+            val effectiveSpeed = book.speedOverride ?: book.playbackSpeed.takeIf { it > 0f } ?: globalDefaultSpeed
+            val effectiveSkipBack = book.skipBackSecondsOverride ?: globalSkipSec
+            val effectiveSkipForward = book.skipForwardSecondsOverride ?: globalSkipSec
+            val effectiveSilenceSkipping = book.silenceSkippingOverride ?: globalSilenceSkipping
+            val effectiveVolumeBoost = book.volumeBoostOverride ?: globalVolumeBoost
+            val effectiveMono = book.monoDownmixOverride ?: globalMono
+            val effectiveLoudness = book.loudnessNormalizationOverride ?: globalLoudness
+            val effectiveVoiceBoost = book.voiceBoostPresetOverride ?: globalVoiceBoost
+
+            exoPlayer.setPlaybackSpeed(effectiveSpeed)
+            exoPlayer.skipSilenceEnabled = effectiveSilenceSkipping
+            monoAudioProcessor.isEnabled = effectiveMono
+
+            _playbackState.value = _playbackState.value.copy(
+                playbackSpeed = effectiveSpeed,
+                skipBackSeconds = effectiveSkipBack,
+                skipForwardSeconds = effectiveSkipForward,
+                silenceSkippingEnabled = effectiveSilenceSkipping,
+                volumeBoostLevel = effectiveVolumeBoost,
+                monoDownmixEnabled = effectiveMono,
+                loudnessNormalizationEnabled = effectiveLoudness,
+                voiceBoostPreset = effectiveVoiceBoost
+            )
+
+            setupAudioEffects()
+        }
+    }
+
     fun play() {
         val state = _playbackState.value
         val book = state.currentBook ?: return
 
-        // Auto-rewind calculation
         scope.launch {
+            // Tiered smart resume auto-rewind
             val autoRewindEnabled = preferencesManager.autoRewindEnabled.first()
             if (autoRewindEnabled && lastPauseTimestamp > 0) {
                 val pausedDurationMs = System.currentTimeMillis() - lastPauseTimestamp
-                val rewindMs = calculateAutoRewind(pausedDurationMs)
+                val smartConfig = SmartResumeConfig(
+                    enabled = true,
+                    tier1Sec = preferencesManager.smartResumeTier1Sec.first(),
+                    tier2Sec = preferencesManager.smartResumeTier2Sec.first(),
+                    tier3Sec = preferencesManager.smartResumeTier3Sec.first(),
+                    tier4Sec = preferencesManager.smartResumeTier4Sec.first(),
+                    tier5Sec = preferencesManager.smartResumeTier5Sec.first()
+                )
+                val rewindMs = SmartResumeTiers.calculateRewindMs(pausedDurationMs, smartConfig)
                 if (rewindMs > 0) {
                     seekTo((state.chapterPositionMs - rewindMs).coerceAtLeast(0L), recordUndo = false)
                 }
             }
             lastPauseTimestamp = 0L
+
+            // Check bedtime sleep timer schedule
+            checkBedtimeSchedule()
 
             exoPlayer.play()
             _playbackState.value = _playbackState.value.copy(isPlaying = true)
@@ -270,6 +392,69 @@ class PlaybackManager @Inject constructor(
                 )
             )
         }
+    }
+
+    private suspend fun checkBedtimeSchedule() {
+        val enabled = preferencesManager.bedtimeEnabled.first()
+        if (!enabled) return
+
+        val days = preferencesManager.bedtimeDays.first().mapNotNull { it.toIntOrNull() }.toSet()
+        val startHour = preferencesManager.bedtimeStartHour.first()
+        val startMinute = preferencesManager.bedtimeStartMinute.first()
+        val duration = preferencesManager.bedtimeDurationMinutes.first()
+        val autoStart = preferencesManager.bedtimeAutoStart.first()
+
+        val config = BedtimeConfig(
+            enabled = true,
+            startHour = startHour,
+            startMinute = startMinute,
+            durationMinutes = duration,
+            daysOfWeek = if (days.isEmpty()) setOf(1, 2, 3, 4, 5, 6, 7) else days,
+            autoStart = autoStart
+        )
+
+        val now = System.currentTimeMillis()
+        val cal = Calendar.getInstance().apply { timeInMillis = now }
+        val todayStr = "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.DAY_OF_YEAR)}"
+
+        if (todayStr != lastBedtimeTriggerDate && BedtimeScheduleEvaluator.isWithinBedtimeWindow(now, config)) {
+            lastBedtimeTriggerDate = todayStr
+            if (autoStart) {
+                if (duration == -1) {
+                    startSleepTimerEndOfChapter()
+                } else {
+                    startSleepTimer(duration)
+                }
+            } else {
+                _playbackState.value = _playbackState.value.copy(
+                    showBedtimePrompt = true,
+                    bedtimePromptDurationMinutes = duration
+                )
+            }
+        }
+    }
+
+    fun dismissBedtimePrompt() {
+        _playbackState.value = _playbackState.value.copy(showBedtimePrompt = false)
+    }
+
+    fun acceptBedtimePrompt() {
+        val duration = _playbackState.value.bedtimePromptDurationMinutes
+        if (duration == -1) {
+            startSleepTimerEndOfChapter()
+        } else {
+            startSleepTimer(duration)
+        }
+        dismissBedtimePrompt()
+    }
+
+    fun dismissWelcomeBack() {
+        _playbackState.value = _playbackState.value.copy(showWelcomeBackCard = false)
+    }
+
+    fun rewindToChapterStart() {
+        seekTo(0L, recordUndo = true)
+        dismissWelcomeBack()
     }
 
     fun pause() {
@@ -309,19 +494,15 @@ class PlaybackManager @Inject constructor(
     }
 
     fun skipForward() {
-        scope.launch {
-            val skipSec = preferencesManager.skipAmountSeconds.first()
-            val newPos = _playbackState.value.chapterPositionMs + (skipSec * 1000L)
-            seekTo(newPos, recordUndo = true)
-        }
+        val skipSec = _playbackState.value.skipForwardSeconds
+        val newPos = _playbackState.value.chapterPositionMs + (skipSec * 1000L)
+        seekTo(newPos, recordUndo = true)
     }
 
     fun skipBackward() {
-        scope.launch {
-            val skipSec = preferencesManager.skipAmountSeconds.first()
-            val newPos = (_playbackState.value.chapterPositionMs - (skipSec * 1000L)).coerceAtLeast(0L)
-            seekTo(newPos, recordUndo = true)
-        }
+        val skipSec = _playbackState.value.skipBackSeconds
+        val newPos = (_playbackState.value.chapterPositionMs - (skipSec * 1000L)).coerceAtLeast(0L)
+        seekTo(newPos, recordUndo = true)
     }
 
     fun seekTo(positionMs: Long, recordUndo: Boolean = true) {
@@ -458,41 +639,253 @@ class PlaybackManager @Inject constructor(
         }
     }
 
+    // Playback Speed
     fun setPlaybackSpeed(speed: Float) {
-        val clamped = (speed.coerceIn(0.5f, 3.0f) * 20).toInt() / 20f // 0.05 step
-        exoPlayer.setPlaybackSpeed(clamped)
-        _playbackState.value = _playbackState.value.copy(playbackSpeed = clamped)
-        scope.launch {
-            _playbackState.value.currentBook?.let { book ->
-                bookDao.updatePlaybackSpeed(book.id, clamped)
+        val clamped = (speed.coerceIn(0.5f, 3.0f) * 20).toInt() / 20f
+        val book = _playbackState.value.currentBook
+        if (book != null && book.speedOverride != null) {
+            setBookSpeedOverride(clamped)
+        } else {
+            exoPlayer.setPlaybackSpeed(clamped)
+            _playbackState.value = _playbackState.value.copy(playbackSpeed = clamped)
+            scope.launch {
+                book?.let { bookDao.updatePlaybackSpeed(it.id, clamped) }
             }
         }
     }
 
     fun setSilenceSkipping(enabled: Boolean) {
-        exoPlayer.skipSilenceEnabled = enabled
-        _playbackState.value = _playbackState.value.copy(silenceSkippingEnabled = enabled)
-        scope.launch {
-            preferencesManager.setSilenceSkippingEnabled(enabled)
+        val book = _playbackState.value.currentBook
+        if (book != null && book.silenceSkippingOverride != null) {
+            setBookSilenceSkippingOverride(enabled)
+        } else {
+            exoPlayer.skipSilenceEnabled = enabled
+            _playbackState.value = _playbackState.value.copy(silenceSkippingEnabled = enabled)
+            scope.launch {
+                preferencesManager.setSilenceSkippingEnabled(enabled)
+            }
         }
     }
 
     fun setVolumeBoost(level: Float) {
-        // level: 0.0f .. 1.0f (maps to 0 to 1000 mB)
-        _playbackState.value = _playbackState.value.copy(volumeBoostLevel = level)
+        val clamped = level.coerceIn(0f, 1f)
+        val book = _playbackState.value.currentBook
+        if (book != null && book.volumeBoostOverride != null) {
+            setBookVolumeBoostOverride(clamped)
+        } else {
+            _playbackState.value = _playbackState.value.copy(volumeBoostLevel = clamped)
+            setupAudioEffects()
+            scope.launch {
+                preferencesManager.setVolumeBoostLevel(clamped)
+            }
+        }
+    }
+
+    fun setMonoDownmix(enabled: Boolean) {
+        val book = _playbackState.value.currentBook
+        if (book != null && book.monoDownmixOverride != null) {
+            setBookMonoDownmixOverride(enabled)
+        } else {
+            monoAudioProcessor.isEnabled = enabled
+            _playbackState.value = _playbackState.value.copy(monoDownmixEnabled = enabled)
+            scope.launch {
+                preferencesManager.setGlobalMonoDownmix(enabled)
+            }
+        }
+    }
+
+    fun setLoudnessNormalization(enabled: Boolean) {
+        val book = _playbackState.value.currentBook
+        if (book != null && book.loudnessNormalizationOverride != null) {
+            setBookLoudnessNormalizationOverride(enabled)
+        } else {
+            _playbackState.value = _playbackState.value.copy(loudnessNormalizationEnabled = enabled)
+            setupAudioEffects()
+            scope.launch {
+                preferencesManager.setGlobalLoudnessNormalization(enabled)
+            }
+        }
+    }
+
+    fun setVoiceBoostPreset(preset: String) {
+        val book = _playbackState.value.currentBook
+        if (book != null && book.voiceBoostPresetOverride != null) {
+            setBookVoiceBoostPresetOverride(preset)
+        } else {
+            _playbackState.value = _playbackState.value.copy(voiceBoostPreset = preset)
+            setupAudioEffects()
+            scope.launch {
+                preferencesManager.setGlobalVoiceBoostPreset(preset)
+            }
+        }
+    }
+
+    // Per-Book Overrides Methods
+    fun setBookSpeedOverride(speed: Float?) {
+        val book = _playbackState.value.currentBook ?: return
+        val clamped = speed?.let { (it.coerceIn(0.5f, 3.0f) * 20).toInt() / 20f }
+        scope.launch {
+            bookDao.updateSpeedOverride(book.id, clamped)
+            val updated = book.copy(speedOverride = clamped)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookSkipBackOverride(seconds: Int?) {
+        val book = _playbackState.value.currentBook ?: return
+        val clamped = seconds?.coerceIn(5, 120)
+        scope.launch {
+            bookDao.updateSkipBackOverride(book.id, clamped)
+            val updated = book.copy(skipBackSecondsOverride = clamped)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookSkipForwardOverride(seconds: Int?) {
+        val book = _playbackState.value.currentBook ?: return
+        val clamped = seconds?.coerceIn(5, 120)
+        scope.launch {
+            bookDao.updateSkipForwardOverride(book.id, clamped)
+            val updated = book.copy(skipForwardSecondsOverride = clamped)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookSilenceSkippingOverride(enabled: Boolean?) {
+        val book = _playbackState.value.currentBook ?: return
+        scope.launch {
+            bookDao.updateSilenceSkippingOverride(book.id, enabled)
+            val updated = book.copy(silenceSkippingOverride = enabled)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookVolumeBoostOverride(level: Float?) {
+        val book = _playbackState.value.currentBook ?: return
+        val clamped = level?.coerceIn(0f, 1f)
+        scope.launch {
+            bookDao.updateVolumeBoostOverride(book.id, clamped)
+            val updated = book.copy(volumeBoostOverride = clamped)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookVoiceBoostPresetOverride(preset: String?) {
+        val book = _playbackState.value.currentBook ?: return
+        scope.launch {
+            bookDao.updateVoiceBoostPresetOverride(book.id, preset)
+            val updated = book.copy(voiceBoostPresetOverride = preset)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookMonoDownmixOverride(enabled: Boolean?) {
+        val book = _playbackState.value.currentBook ?: return
+        scope.launch {
+            bookDao.updateMonoDownmixOverride(book.id, enabled)
+            val updated = book.copy(monoDownmixOverride = enabled)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun setBookLoudnessNormalizationOverride(enabled: Boolean?) {
+        val book = _playbackState.value.currentBook ?: return
+        scope.launch {
+            bookDao.updateLoudnessNormalizationOverride(book.id, enabled)
+            val updated = book.copy(loudnessNormalizationOverride = enabled)
+            _playbackState.value = _playbackState.value.copy(currentBook = updated)
+            applyEffectiveSettingsForBook(updated)
+        }
+    }
+
+    fun resetBookPlaybackOverrides() {
+        val book = _playbackState.value.currentBook ?: return
+        scope.launch {
+            bookDao.resetPlaybackOverrides(book.id)
+            val resetBook = book.copy(
+                speedOverride = null,
+                skipBackSecondsOverride = null,
+                skipForwardSecondsOverride = null,
+                silenceSkippingOverride = null,
+                volumeBoostOverride = null,
+                voiceBoostPresetOverride = null,
+                monoDownmixOverride = null,
+                loudnessNormalizationOverride = null
+            )
+            _playbackState.value = _playbackState.value.copy(currentBook = resetBook)
+            applyEffectiveSettingsForBook(resetBook)
+        }
+    }
+
+    private fun setupAudioEffects() {
         try {
             val audioSessionId = exoPlayer.audioSessionId
-            if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
-                if (loudnessEnhancer == null) {
-                    loudnessEnhancer = LoudnessEnhancer(audioSessionId)
+            if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId != lastAudioSessionId) {
+                lastAudioSessionId = audioSessionId
+                loudnessEnhancer?.release()
+                equalizer?.release()
+                loudnessEnhancer = LoudnessEnhancer(audioSessionId)
+                equalizer = Equalizer(0, audioSessionId)
+            }
+            applyAudioEffects()
+        } catch (_: Exception) {}
+    }
+
+    private fun applyAudioEffects() {
+        val state = _playbackState.value
+        try {
+            val gainMb = ((state.volumeBoostLevel * 1000) + (if (state.loudnessNormalizationEnabled) 400 else 0)).toInt()
+            if (gainMb > 0) {
+                loudnessEnhancer?.setTargetGain(gainMb)
+                loudnessEnhancer?.enabled = true
+            } else {
+                loudnessEnhancer?.enabled = false
+            }
+
+            val eq = equalizer
+            if (eq != null) {
+                when (state.voiceBoostPreset) {
+                    "Light" -> {
+                        eq.enabled = true
+                        val numBands = eq.numberOfBands
+                        for (i in 0 until numBands) {
+                            val freq = eq.getCenterFreq(i.toShort()) // in mHz
+                            val level: Short = when {
+                                freq < 300_000 -> (-250).toShort()
+                                freq in 1_000_000..4_000_000 -> 350.toShort()
+                                freq > 8_000_000 -> (-100).toShort()
+                                else -> 0.toShort()
+                            }
+                            eq.setBandLevel(i.toShort(), level)
+                        }
+                    }
+                    "Strong" -> {
+                        eq.enabled = true
+                        val numBands = eq.numberOfBands
+                        for (i in 0 until numBands) {
+                            val freq = eq.getCenterFreq(i.toShort()) // in mHz
+                            val level: Short = when {
+                                freq < 300_000 -> (-500).toShort()
+                                freq in 1_000_000..4_000_000 -> 600.toShort()
+                                freq > 8_000_000 -> (-200).toShort()
+                                else -> 0.toShort()
+                            }
+                            eq.setBandLevel(i.toShort(), level)
+                        }
+                    }
+                    else -> {
+                        eq.enabled = false
+                    }
                 }
-                loudnessEnhancer?.setTargetGain((level * 1000).toInt())
-                loudnessEnhancer?.enabled = level > 0f
             }
         } catch (_: Exception) {}
-        scope.launch {
-            preferencesManager.setVolumeBoostLevel(level)
-        }
     }
 
     // Sleep Timer
@@ -590,7 +983,6 @@ class PlaybackManager @Inject constructor(
     }
 
     private fun onDeviceShook() {
-        // Shook to keep listening: extend sleep timer by 15 minutes!
         val state = _playbackState.value
         if (state.sleepTimerIsActive) {
             val extendedMinutes = 15
@@ -612,18 +1004,7 @@ class PlaybackManager @Inject constructor(
         }
     }
 
-    private fun calculateAutoRewind(pausedDurationMs: Long): Long {
-        return when {
-            pausedDurationMs < 5_000L -> 0L // instantaneous unpause
-            pausedDurationMs < 60_000L -> 3_000L // < 1 min: 3s
-            pausedDurationMs < 600_000L -> 8_000L // < 10 min: 8s
-            pausedDurationMs < 3_600_000L -> 15_000L // < 1 hr: 15s
-            else -> 25_000L // long pause: 25s
-        }
-    }
-
     private fun handlePlaybackResumed() {
-        // Clear undo chip after 10s of steady playback
         scope.launch {
             delay(10000L)
             if (_playbackState.value.isPlaying) {
@@ -699,6 +1080,7 @@ class PlaybackManager @Inject constructor(
         sleepTimerJob?.cancel()
         shakeDetector.stop()
         loudnessEnhancer?.release()
+        equalizer?.release()
         exoPlayer.release()
     }
 }

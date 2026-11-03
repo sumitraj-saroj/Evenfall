@@ -54,6 +54,13 @@ class PlayerViewModel @Inject constructor(
             initialValue = true
         )
 
+    val playerGesturesEnabled: StateFlow<Boolean> = preferencesManager.playerGesturesEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
     init {
         val bookId: Long? = savedStateHandle["bookId"]
         if (bookId != null && bookId > 0) {
@@ -89,6 +96,26 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun setVolumeBoost(level: Float) = playbackManager.setVolumeBoost(level)
+
+    fun setMonoDownmix(enabled: Boolean) = playbackManager.setMonoDownmix(enabled)
+    fun setLoudnessNormalization(enabled: Boolean) = playbackManager.setLoudnessNormalization(enabled)
+    fun setVoiceBoostPreset(preset: String) = playbackManager.setVoiceBoostPreset(preset)
+
+    fun setBookSpeedOverride(speed: Float?) = playbackManager.setBookSpeedOverride(speed)
+    fun setBookSkipBackOverride(seconds: Int?) = playbackManager.setBookSkipBackOverride(seconds)
+    fun setBookSkipForwardOverride(seconds: Int?) = playbackManager.setBookSkipForwardOverride(seconds)
+    fun setBookSilenceSkippingOverride(enabled: Boolean?) = playbackManager.setBookSilenceSkippingOverride(enabled)
+    fun setBookVolumeBoostOverride(level: Float?) = playbackManager.setBookVolumeBoostOverride(level)
+    fun setBookVoiceBoostPresetOverride(preset: String?) = playbackManager.setBookVoiceBoostPresetOverride(preset)
+    fun setBookMonoDownmixOverride(enabled: Boolean?) = playbackManager.setBookMonoDownmixOverride(enabled)
+    fun setBookLoudnessNormalizationOverride(enabled: Boolean?) = playbackManager.setBookLoudnessNormalizationOverride(enabled)
+    fun resetBookPlaybackOverrides() = playbackManager.resetBookPlaybackOverrides()
+
+    fun dismissWelcomeBack() = playbackManager.dismissWelcomeBack()
+    fun rewindToChapterStart() = playbackManager.rewindToChapterStart()
+
+    fun dismissBedtimePrompt() = playbackManager.dismissBedtimePrompt()
+    fun acceptBedtimePrompt() = playbackManager.acceptBedtimePrompt()
 
     fun startSleepTimer(minutes: Int) = playbackManager.startSleepTimer(minutes)
 

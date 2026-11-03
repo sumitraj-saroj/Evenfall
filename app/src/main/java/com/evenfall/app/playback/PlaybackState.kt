@@ -18,7 +18,16 @@ data class PlaybackState(
     val silenceSkippingEnabled: Boolean = false,
     val volumeBoostLevel: Float = 0f,
     val undoSeekPositionMs: Long? = null,
-    val isMiniPlayerDismissed: Boolean = false
+    val isMiniPlayerDismissed: Boolean = false,
+    val skipBackSeconds: Int = 20,
+    val skipForwardSeconds: Int = 20,
+    val monoDownmixEnabled: Boolean = false,
+    val loudnessNormalizationEnabled: Boolean = false,
+    val voiceBoostPreset: String = "Off",
+    val showWelcomeBackCard: Boolean = false,
+    val welcomeBackChapterTitle: String? = null,
+    val showBedtimePrompt: Boolean = false,
+    val bedtimePromptDurationMinutes: Int = 30
 ) {
     val chapterProgressFraction: Float
         get() = if (chapterDurationMs > 0) {
@@ -38,4 +47,7 @@ data class PlaybackState(
 
     val chapterTimeRemainingMs: Long
         get() = (chapterDurationMs - chapterPositionMs).coerceAtLeast(0L)
+
+    val hasCustomPlaybackOverrides: Boolean
+        get() = currentBook?.hasPlaybackOverrides == true
 }
