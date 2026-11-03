@@ -38,6 +38,7 @@ import com.evenfall.app.ui.screens.fixlibrary.FixLibraryScreen
 import com.evenfall.app.ui.screens.home.HomeScreen
 import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
 import com.evenfall.app.ui.screens.player.PlayerScreen
+import com.evenfall.app.ui.screens.scanlog.ScanLogScreen
 import com.evenfall.app.ui.screens.settings.SettingsScreen
 import com.evenfall.app.ui.theme.ColorSchemeOption
 import com.evenfall.app.ui.theme.EvenfallTheme
@@ -161,6 +162,9 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                 SettingsScreen(
                     onBack = {
                         navController.popBackStack()
+                    },
+                    onOpenScanLog = {
+                        navController.navigate(Screen.ScanLog.route)
                     }
                 )
             }
@@ -171,6 +175,14 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                         navController.popBackStack()
                     },
                     hasMiniPlayer = showMiniPlayer
+                )
+            }
+
+            composable(Screen.ScanLog.route) {
+                ScanLogScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
         }

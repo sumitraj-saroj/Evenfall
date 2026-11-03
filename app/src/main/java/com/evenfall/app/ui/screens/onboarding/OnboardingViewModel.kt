@@ -144,6 +144,7 @@ class OnboardingViewModel @Inject constructor(
                         }
                     }
                     is ScanProgress.Error -> _uiState.value = OnboardingUiState.Error(progress.message)
+                    is ScanProgress.Cancelled -> _uiState.value = OnboardingUiState.Idle
                 }
             }
         }

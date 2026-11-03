@@ -94,6 +94,12 @@ class FixLibraryViewModel @Inject constructor(
                                 errorMessage = progress.message
                             )
                         }
+                        is ScanProgress.Cancelled -> {
+                            _uiState.value = _uiState.value.copy(
+                                isScanning = false,
+                                scanMessage = "Scan cancelled"
+                            )
+                        }
                     }
                 }
 

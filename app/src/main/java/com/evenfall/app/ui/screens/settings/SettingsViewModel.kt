@@ -379,6 +379,12 @@ class SettingsViewModel @Inject constructor(
         _restoreErrorMessage.value = null
     }
 
+    val scanProgress = libraryRepository.scanProgress
+
+    fun cancelScan() {
+        libraryRepository.cancelScan()
+    }
+
     suspend fun exportAllBookmarks(format: com.evenfall.app.util.ExportFormat): String {
         val books = bookDao.getAllBooksSync()
         val booksData = books.map { b ->

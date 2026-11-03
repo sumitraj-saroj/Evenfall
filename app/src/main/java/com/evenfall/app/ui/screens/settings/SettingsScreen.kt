@@ -31,8 +31,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
@@ -89,9 +91,11 @@ import com.evenfall.app.ui.theme.SerifFont
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenScanLog: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scanProgress by viewModel.scanProgress.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -574,6 +578,75 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // Active scanning progress indicator or cancelled resume banner
+                        val currentProgress = scanProgress
+                        if (currentProgress is com.evenfall.app.data.scanner.ScanProgress.Scanning) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (currentProgress.total > 0) {
+                                                stringResource(R.string.scanning_progress, currentProgress.current, currentProgress.total)
+                                            } else {
+                                                currentProgress.message
+                                            },
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = viewModel::cancelScan,
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = stringResource(R.string.cancel_scan),
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    com.evenfall.app.ui.components.WavyProgressLine(
+                                        progress = if (currentProgress.total > 0) currentProgress.current.toFloat() / currentProgress.total else 0.5f,
+                                        isPlaying = true,
+                                        activeColor = MaterialTheme.colorScheme.primary,
+                                        inactiveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        } else if (currentProgress is com.evenfall.app.data.scanner.ScanProgress.Cancelled) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Scan paused",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = viewModel::rescanLibrary) {
+                                        Text(stringResource(R.string.resume_scan))
+                                    }
+                                }
+                            }
+                        }
+
                         // Rescan library button
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -591,6 +664,33 @@ fun SettingsScreen(
                                 Column {
                                     Text("Rescan audiobooks", fontWeight = FontWeight.SemiBold)
                                     Text("Detect new, renamed, or removed files", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Scan log button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenScanLog)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(stringResource(R.string.scan_log), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        stringResource(R.string.scan_log_desc),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }

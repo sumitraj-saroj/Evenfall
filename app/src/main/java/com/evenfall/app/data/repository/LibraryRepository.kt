@@ -16,6 +16,9 @@ import com.evenfall.app.data.scanner.ScannedBookPreview
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -163,22 +166,33 @@ class LibraryRepository @Inject constructor(
         bookDao.deleteById(sourceBookId)
     }
 
+    private val _scanProgress = MutableStateFlow<ScanProgress?>(null)
+    val scanProgress: StateFlow<ScanProgress?> = _scanProgress.asStateFlow()
+
+    fun cancelScan() {
+        libraryScanner.cancelScan()
+    }
+
     suspend fun rescanLibrary(): Result<Int> = withContext(Dispatchers.IO) {
         try {
+            libraryScanner.resetCancellation()
             val folders = preferencesManager.libraryFolders.first()
             val mode = preferencesManager.scanMode.first()
             var totalBooksFound = 0
             for (folderUriStr in folders) {
                 val uri = Uri.parse(folderUriStr)
                 libraryScanner.scanFolderPreview(uri, mode).collect { progress ->
+                    _scanProgress.value = progress
                     if (progress is ScanProgress.Found) {
                         libraryScanner.saveScannedBooks(progress.books)
                         totalBooksFound += progress.books.size
                     }
                 }
             }
+            _scanProgress.value = null
             Result.success(totalBooksFound)
         } catch (e: Exception) {
+            _scanProgress.value = null
             Result.failure(e)
         }
     }

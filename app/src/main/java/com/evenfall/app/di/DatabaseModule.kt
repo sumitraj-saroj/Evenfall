@@ -7,6 +7,7 @@ import com.evenfall.app.data.db.dao.BookmarkDao
 import com.evenfall.app.data.db.dao.BookDao
 import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.dao.HistoryDao
+import com.evenfall.app.data.db.dao.ScanIssueDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,7 +27,10 @@ object DatabaseModule {
             EvenfallDatabase::class.java,
             "evenfall.db"
         )
-            .addMigrations(EvenfallDatabase.MIGRATION_1_2)
+            .addMigrations(
+                EvenfallDatabase.MIGRATION_1_2,
+                EvenfallDatabase.MIGRATION_2_3
+            )
             .build()
     }
 
@@ -41,4 +45,7 @@ object DatabaseModule {
 
     @Provides
     fun provideHistoryDao(database: EvenfallDatabase): HistoryDao = database.historyDao()
+
+    @Provides
+    fun provideScanIssueDao(database: EvenfallDatabase): ScanIssueDao = database.scanIssueDao()
 }
