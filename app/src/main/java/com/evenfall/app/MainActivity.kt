@@ -34,6 +34,7 @@ import com.evenfall.app.playback.PlaybackManager
 import com.evenfall.app.ui.components.MiniPlayer
 import com.evenfall.app.ui.navigation.Screen
 import com.evenfall.app.ui.screens.bookmarks.BookmarksHistoryScreen
+import com.evenfall.app.ui.screens.collections.ManageCollectionsScreen
 import com.evenfall.app.ui.screens.fixlibrary.FixLibraryScreen
 import com.evenfall.app.ui.screens.home.HomeScreen
 import com.evenfall.app.ui.screens.onboarding.OnboardingScreen
@@ -115,6 +116,9 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                     onOpenFixLibrary = {
                         navController.navigate(Screen.FixLibrary.route)
                     },
+                    onOpenManageCollections = {
+                        navController.navigate(Screen.ManageCollections.route)
+                    },
                     hasMiniPlayer = showMiniPlayer
                 )
             }
@@ -165,6 +169,17 @@ fun EvenfallAppNav(playbackManager: PlaybackManager) {
                     },
                     onOpenScanLog = {
                         navController.navigate(Screen.ScanLog.route)
+                    },
+                    onOpenManageCollections = {
+                        navController.navigate(Screen.ManageCollections.route)
+                    }
+                )
+            }
+
+            composable(Screen.ManageCollections.route) {
+                ManageCollectionsScreen(
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }

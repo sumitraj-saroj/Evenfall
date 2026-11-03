@@ -12,14 +12,22 @@ import com.evenfall.app.data.db.dao.ChapterDao
 import com.evenfall.app.data.db.dao.CollectionDao
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.data.db.entity.CollectionEntity
+import com.evenfall.app.data.db.entity.RecentSearchEntity
+import com.evenfall.app.data.repository.BookmarkSearchResult
+import com.evenfall.app.data.repository.ChapterSearchResult
 import com.evenfall.app.data.repository.LibraryRepository
+import com.evenfall.app.data.repository.SearchResults
+import com.evenfall.app.data.repository.SearchRepository
 import com.evenfall.app.playback.PlaybackManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -82,9 +90,13 @@ data class HomeUiState(
     val isRefreshing: Boolean = false,
     val sortOption: SortOption = SortOption.RECENTLY_PLAYED,
     val hasUnavailableBooks: Boolean = false,
-    val nextInSeriesPrompt: BookEntity? = null
+    val nextInSeriesPrompt: BookEntity? = null,
+    val recentSearches: List<RecentSearchEntity> = emptyList(),
+    val searchResults: SearchResults = SearchResults(),
+    val isSearchFocused: Boolean = false
 )
 
+@OptIn(kotlinx.coroutines.FlowPreview::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
@@ -93,11 +105,18 @@ class HomeViewModel @Inject constructor(
     private val collectionDao: CollectionDao,
     private val preferencesManager: PreferencesManager,
     private val playbackManager: PlaybackManager,
+    private val searchRepository: SearchRepository,
     private val demoDataSeeder: DemoDataSeeder
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow(SearchResults())
+    val searchResults = _searchResults.asStateFlow()
+
+    private val _isSearchFocused = MutableStateFlow(false)
+    val isSearchFocused = _isSearchFocused.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
@@ -105,6 +124,19 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             demoDataSeeder.seedDemoDataIfEmpty()
+        }
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(100)
+                .distinctUntilChanged()
+                .collectLatest { query ->
+                    if (query.isNotBlank()) {
+                        val results = searchRepository.search(query)
+                        _searchResults.value = results
+                    } else {
+                        _searchResults.value = SearchResults()
+                    }
+                }
         }
     }
 
@@ -154,16 +186,35 @@ class HomeViewModel @Inject constructor(
         val query: String,
         val collections: List<CollectionEntity>,
         val nextInSeries: BookEntity?,
-        val refreshing: Boolean
+        val refreshing: Boolean,
+        val recentSearches: List<RecentSearchEntity>,
+        val searchResults: SearchResults,
+        val isSearchFocused: Boolean
     )
+
+    private val searchSubFlow = combine(
+        _isSearchFocused,
+        searchRepository.getRecentSearches(),
+        _searchResults
+    ) { focused, recents, results ->
+        Triple(focused, recents, results)
+    }
+
+    private val refreshAndSearchFlow = combine(_isRefreshing, searchSubFlow) { refreshing, searchTriple ->
+        Pair(refreshing, searchTriple)
+    }
 
     private val dynamicStateFlow = combine(
         _searchQuery,
         collectionDao.getAllCollections(),
         playbackManager.nextInSeriesPrompt,
-        _isRefreshing
-    ) { query, collections, nextInSeries, refreshing ->
-        DynamicState(query, collections, nextInSeries, refreshing)
+        refreshAndSearchFlow
+    ) { query, collections, nextInSeries, pair ->
+        val refreshing = pair.first
+        val focused = pair.second.first
+        val recents = pair.second.second
+        val results = pair.second.third
+        DynamicState(query, collections, nextInSeries, refreshing, recents, results, focused)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -175,6 +226,9 @@ class HomeViewModel @Inject constructor(
         val collections = dynamicState.collections
         val nextInSeries = dynamicState.nextInSeries
         val refreshing = dynamicState.refreshing
+        val recentSearches = dynamicState.recentSearches
+        val searchResults = dynamicState.searchResults
+        val isSearchFocused = dynamicState.isSearchFocused
         val filterState = FilterState(
             statuses = prefs.filterStatus,
             collectionId = prefs.filterCollectionId,
@@ -192,10 +246,14 @@ class HomeViewModel @Inject constructor(
             val matchesQuery = if (query.isBlank()) {
                 true
             } else {
-                val q = query.trim().lowercase()
-                book.displayTitle.lowercase().contains(q) ||
-                        book.displayAuthor.lowercase().contains(q) ||
-                        (book.displaySeriesName?.lowercase()?.contains(q) == true)
+                if (searchResults.books.isNotEmpty()) {
+                    searchResults.books.any { it.id == book.id }
+                } else {
+                    val q = query.trim().lowercase()
+                    book.displayTitle.lowercase().contains(q) ||
+                            book.displayAuthor.lowercase().contains(q) ||
+                            (book.displaySeriesName?.lowercase()?.contains(q) == true)
+                }
             }
 
             val matchesStatus = if (prefs.filterStatus.isEmpty()) {
@@ -301,7 +359,10 @@ class HomeViewModel @Inject constructor(
             isRefreshing = refreshing,
             sortOption = legacySortOption,
             hasUnavailableBooks = hasUnavailable,
-            nextInSeriesPrompt = nextInSeries
+            nextInSeriesPrompt = nextInSeries,
+            recentSearches = recentSearches,
+            searchResults = searchResults,
+            isSearchFocused = isSearchFocused
         )
     }.stateIn(
         scope = viewModelScope,
@@ -311,6 +372,63 @@ class HomeViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+    }
+
+    fun onSearchFocusChanged(focused: Boolean) {
+        _isSearchFocused.value = focused
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
+        _searchResults.value = SearchResults()
+    }
+
+    fun selectRecentSearch(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun saveRecentSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isNotBlank()) {
+            viewModelScope.launch {
+                searchRepository.addRecentSearch(trimmed)
+            }
+        }
+    }
+
+    fun deleteRecentSearch(query: String) {
+        viewModelScope.launch {
+            searchRepository.deleteRecentSearch(query)
+        }
+    }
+
+    fun clearRecentSearches() {
+        viewModelScope.launch {
+            searchRepository.clearRecentSearches()
+        }
+    }
+
+    fun openSearchResultBook(book: BookEntity) {
+        saveRecentSearch(_searchQuery.value)
+        playbackManager.loadBook(book.id)
+    }
+
+    fun openSearchResultBookmark(result: BookmarkSearchResult) {
+        saveRecentSearch(_searchQuery.value)
+        playbackManager.loadBookAndSeek(
+            bookId = result.bookmark.bookId,
+            chapterIndex = result.bookmark.chapterIndex,
+            positionMs = result.bookmark.positionMs
+        )
+    }
+
+    fun openSearchResultChapter(result: ChapterSearchResult) {
+        saveRecentSearch(_searchQuery.value)
+        playbackManager.loadBookAndSeek(
+            bookId = result.chapter.bookId,
+            chapterIndex = result.chapter.chapterIndex,
+            positionMs = 0L
+        )
     }
 
     fun setLibraryTab(tab: LibraryTab) {

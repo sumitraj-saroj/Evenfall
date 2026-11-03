@@ -185,6 +185,61 @@ class PlaybackManager @Inject constructor(
         }
     }
 
+    fun loadBookAndSeek(bookId: Long, chapterIndex: Int, positionMs: Long, autoPlay: Boolean = false) {
+        scope.launch {
+            val book = bookDao.getBookByIdSync(bookId) ?: return@launch
+            val chapters = chapterDao.getChaptersForBookSync(bookId)
+            val validChapterIdx = chapterIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0))
+            val targetChapter = chapters.getOrNull(validChapterIdx)
+
+            val clampedChapterPos = if (targetChapter != null && targetChapter.durationMs > 0L) {
+                positionMs.coerceIn(0L, targetChapter.durationMs)
+            } else {
+                positionMs.coerceAtLeast(0L)
+            }
+
+            val totalPos = (targetChapter?.startMs ?: 0L) + clampedChapterPos
+
+            _playbackState.value = _playbackState.value.copy(
+                currentBook = book,
+                chapters = chapters,
+                currentChapter = targetChapter,
+                playbackSpeed = book.playbackSpeed,
+                chapterPositionMs = clampedChapterPos,
+                chapterDurationMs = targetChapter?.durationMs ?: (book.totalDurationMs / chapters.size.coerceAtLeast(1)),
+                totalPositionMs = totalPos,
+                totalDurationMs = book.totalDurationMs,
+                isMiniPlayerDismissed = false
+            )
+
+            // Setup ExoPlayer MediaItem
+            if (targetChapter != null && targetChapter.fileUri.startsWith("content://")) {
+                try {
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(targetChapter.fileUri))
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(book.title)
+                                .setArtist(book.author)
+                                .setDisplayTitle(targetChapter.title)
+                                .build()
+                        )
+                        .build()
+                    exoPlayer.setMediaItem(mediaItem)
+                    exoPlayer.prepare()
+                    exoPlayer.seekTo(clampedChapterPos)
+                } catch (_: Exception) {}
+            }
+
+            exoPlayer.setPlaybackSpeed(book.playbackSpeed)
+            saveCurrentPosition()
+
+            if (autoPlay) {
+                play()
+            }
+        }
+    }
+
     fun play() {
         val state = _playbackState.value
         val book = state.currentBook ?: return

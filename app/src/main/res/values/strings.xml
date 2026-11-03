@@ -4,6 +4,7 @@
     <string name="media_notification_channel_description">Playback controls for Evenfall audiobooks</string>
     <string name="cd_mini_player">Mini player</string>
     <string name="cd_skip_backward">Skip back</string>
+    <string name="cd_back">Back</string>
     <string name="cd_play">Play</string>
     <string name="cd_pause">Pause</string>
     <string name="cd_dismiss_mini_player">Dismiss mini player</string>
@@ -156,4 +157,13 @@
     <string name="rename_collection">Rename collection</string>
     <string name="save_changes">Save</string>
     <string name="no_collections_yet">No collections yet. Create your first collection to organize your library.</string>
+    <string name="delete">Delete</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="books_count">%1$d books</string>
+    <string name="one_book_count">1 book</string>
+    <string name="clear_search">Clear search</string>
+    <string name="search_bookmarks_title">Bookmarks &amp; Notes</string>
+    <string name="search_chapters_title">Chapters</string>
+    <string name="search_books_title">Books</string>
 </resources>

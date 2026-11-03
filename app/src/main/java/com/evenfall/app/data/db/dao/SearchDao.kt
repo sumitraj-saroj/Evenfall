@@ -43,6 +43,9 @@ interface SearchDao {
     @Query("DELETE FROM search_index_fts")
     suspend fun clearSearchIndex()
 
+    @Query("SELECT COUNT(*) FROM search_index_fts")
+    suspend fun getIndexCount(): Int
+
     @Transaction
     suspend fun rebuildSearchIndex(items: List<SearchIndexFtsEntity>) {
         clearSearchIndex()

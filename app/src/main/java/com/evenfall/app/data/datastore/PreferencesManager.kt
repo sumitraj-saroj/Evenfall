@@ -52,10 +52,11 @@ enum class LibrarySortBy {
 }
 
 @Singleton
-class PreferencesManager @Inject constructor(
-    @ApplicationContext private val context: Context
+class PreferencesManager(
+    private val dataStore: DataStore<Preferences>
 ) {
-    private val dataStore = context.dataStore
+    @Inject
+    constructor(@ApplicationContext context: Context) : this(context.dataStore)
 
     companion object {
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")

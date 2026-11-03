@@ -24,6 +24,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId")
     suspend fun getBookmarksForBookSync(bookId: Long): List<BookmarkEntity>
 
+    @Query("SELECT * FROM bookmarks")
+    suspend fun getAllBookmarksSync(): List<BookmarkEntity>
+
     @Query("UPDATE bookmarks SET bookId = :newBookId WHERE bookId = :oldBookId")
     suspend fun transferBookmarksToBook(oldBookId: Long, newBookId: Long)
 

@@ -90,4 +90,17 @@ interface CollectionDao {
             insertCrossRef(BookCollectionCrossRef(bookId = bookId, collectionId = colId))
         }
     }
+
+    @Transaction
+    suspend fun updateCollectionOrders(orderedCollections: List<CollectionEntity>) {
+        for ((index, col) in orderedCollections.withIndex()) {
+            updateCollection(col.copy(orderIndex = index))
+        }
+    }
+
+    @Transaction
+    suspend fun deleteCollectionAndAssociations(id: Long) {
+        deleteCrossRefsForCollection(id)
+        deleteCollection(id)
+    }
 }

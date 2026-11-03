@@ -12,4 +12,5 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
     data object FixLibrary : Screen("fix_library")
     data object ScanLog : Screen("scan_log")
+    data object ManageCollections : Screen("manage_collections")
 }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contrast
@@ -92,6 +93,7 @@ import com.evenfall.app.ui.theme.SerifFont
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenScanLog: () -> Unit = {},
+    onOpenManageCollections: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -685,6 +687,33 @@ fun SettingsScreen(
                                 Column {
                                     Text("Rescan audiobooks", fontWeight = FontWeight.SemiBold)
                                     Text("Detect new, renamed, or removed files", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Manage collections button
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenManageCollections)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Bookmarks, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(stringResource(R.string.manage_collections), fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        stringResource(R.string.collections_title),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }

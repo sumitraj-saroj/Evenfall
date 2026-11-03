@@ -59,6 +59,7 @@ fun SortFilterBottomSheet(
     collections: List<CollectionEntity>,
     onApplySortAndFilter: (LibrarySortBy, Boolean, FilterState) -> Unit,
     onResetFilters: () -> Unit,
+    onManageCollections: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -218,18 +219,32 @@ fun SortFilterBottomSheet(
             }
 
             // FILTER BY COLLECTION
-            if (collections.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = stringResource(R.string.filter_collections),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
+                TextButton(
+                    onClick = {
+                        onDismiss()
+                        onManageCollections()
+                    }
+                ) {
+                    Text(stringResource(R.string.manage_collections), fontSize = 12.sp)
+                }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
+            if (collections.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -249,6 +264,12 @@ fun SortFilterBottomSheet(
                         )
                     }
                 }
+            } else {
+                Text(
+                    text = stringResource(R.string.no_collections_yet),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))

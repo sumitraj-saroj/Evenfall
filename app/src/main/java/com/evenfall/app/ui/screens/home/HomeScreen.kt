@@ -1,5 +1,6 @@
 package com.evenfall.app.ui.screens.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +19,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -97,6 +102,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenAddFolder: () -> Unit,
     onOpenFixLibrary: () -> Unit = {},
+    onOpenManageCollections: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     hasMiniPlayer: Boolean = false
 ) {
@@ -107,6 +113,11 @@ fun HomeScreen(
     var bookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var bookToResetPositionPrompt by remember { mutableStateOf<BookEntity?>(null) }
     var bookToExplainUnavailable by remember { mutableStateOf<BookEntity?>(null) }
+
+    BackHandler(enabled = uiState.isSearchFocused || uiState.searchQuery.isNotBlank()) {
+        viewModel.clearSearchQuery()
+        viewModel.onSearchFocusChanged(false)
+    }
 
     Box(
         modifier = Modifier
@@ -158,6 +169,10 @@ fun HomeScreen(
                                     )
                                 },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = {
+                                    viewModel.saveRecentSearch(uiState.searchQuery)
+                                }),
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
                                     unfocusedContainerColor = Color.Transparent,
@@ -165,8 +180,25 @@ fun HomeScreen(
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent
                                 ),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onFocusChanged { focusState ->
+                                        viewModel.onSearchFocusChanged(focusState.isFocused)
+                                    }
                             )
+                            if (uiState.searchQuery.isNotBlank()) {
+                                IconButton(
+                                    onClick = viewModel::clearSearchQuery,
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.clear_search),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -364,8 +396,36 @@ fun HomeScreen(
                 // Content Padding bottom for mini player
                 val bottomPadding = if (hasMiniPlayer) 88.dp else 24.dp
 
-                // Tab Content Rendering
-                when (uiState.selectedTab) {
+                if (uiState.searchQuery.isNotBlank()) {
+                    SearchResultsGroupedView(
+                        searchQuery = uiState.searchQuery,
+                        results = uiState.searchResults,
+                        onOpenBook = { b ->
+                            viewModel.openSearchResultBook(b)
+                            if (b.isUnavailable) bookToExplainUnavailable = b
+                            else onOpenBook(b.id)
+                        },
+                        onOpenBookmark = { bm ->
+                            viewModel.openSearchResultBookmark(bm)
+                            onOpenBook(bm.bookmark.bookId)
+                        },
+                        onOpenChapter = { ch ->
+                            viewModel.openSearchResultChapter(ch)
+                            onOpenBook(ch.chapter.bookId)
+                        },
+                        modifier = Modifier.padding(bottom = bottomPadding)
+                    )
+                } else if (uiState.isSearchFocused && uiState.recentSearches.isNotEmpty()) {
+                    RecentSearchesView(
+                        recentSearches = uiState.recentSearches,
+                        onSelectQuery = viewModel::selectRecentSearch,
+                        onDeleteQuery = viewModel::deleteRecentSearch,
+                        onClearAll = viewModel::clearRecentSearches,
+                        modifier = Modifier.padding(bottom = bottomPadding)
+                    )
+                } else {
+                    // Tab Content Rendering
+                    when (uiState.selectedTab) {
                     LibraryTab.SERIES -> {
                         SeriesViewContent(
                             seriesGroups = uiState.seriesGroups,
@@ -652,6 +712,7 @@ fun HomeScreen(
                 }
             }
         }
+        }
 
         // Dialogs
         if (showSortFilterSheet) {
@@ -664,6 +725,7 @@ fun HomeScreen(
                     viewModel.applySortAndFilters(sort, asc, filters)
                 },
                 onResetFilters = viewModel::clearFilters,
+                onManageCollections = onOpenManageCollections,
                 onDismiss = { showSortFilterSheet = false }
             )
         }
