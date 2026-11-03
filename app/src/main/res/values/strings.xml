@@ -276,4 +276,8 @@
     <string name="tile_no_book">No audiobook loaded</string>
     <string name="shortcut_continue">Continue %1$s</string>
     <string name="shortcut_library">Library</string>
+
+    <!-- Haptic Feedback -->
+    <string name="haptic_feedback_title">Haptic feedback</string>
+    <string name="haptic_feedback_desc">Subtle vibration for playback controls, bookmarks, seeking, and gestures</string>
 </resources>

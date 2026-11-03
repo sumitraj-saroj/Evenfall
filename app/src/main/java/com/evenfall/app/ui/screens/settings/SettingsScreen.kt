@@ -649,6 +649,27 @@ fun SettingsScreen(
                             )
                         }
 
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Haptic Feedback Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.haptic_feedback_title), fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    stringResource(R.string.haptic_feedback_desc),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.hapticFeedbackEnabled,
+                                onCheckedChange = viewModel::setHapticFeedbackEnabled
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         Spacer(modifier = Modifier.height(16.dp))

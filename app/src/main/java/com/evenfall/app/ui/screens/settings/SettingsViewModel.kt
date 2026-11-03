@@ -68,7 +68,8 @@ data class SettingsUiState(
     val bedtimeDurationMinutes: Int = 30,
     val bedtimeDays: Set<String> = setOf("1", "2", "3", "4", "5", "6", "7"),
     val bedtimeAutoStart: Boolean = true,
-    val playerGesturesEnabled: Boolean = true
+    val playerGesturesEnabled: Boolean = true,
+    val hapticFeedbackEnabled: Boolean = true
 )
 
 private data class ListeningPrefs(
@@ -88,7 +89,8 @@ private data class ListeningPrefs(
     val bedtimeDuration: Int,
     val bedtimeDays: Set<String>,
     val bedtimeAutoStart: Boolean,
-    val playerGestures: Boolean
+    val playerGestures: Boolean,
+    val haptics: Boolean
 )
 
 private data class BackupStateHolder(
@@ -136,7 +138,7 @@ class SettingsViewModel @Inject constructor(
 
     private val listeningFlow = combine(
         combine(preferencesManager.skipAmountSeconds, preferencesManager.autoRewindEnabled) { s, r -> s to r },
-        combine(preferencesManager.shakeToExtendEnabled, preferencesManager.compactPlayer) { sh, c -> sh to c },
+        combine(preferencesManager.shakeToExtendEnabled, preferencesManager.compactPlayer, preferencesManager.hapticFeedbackEnabled) { sh, c, hap -> Triple(sh, c, hap) },
         combine(preferencesManager.autoMarkFinished, preferencesManager.autoPlayNextInSeries) { m, p -> m to p },
         combine(preferencesManager.headsetDoublePressAction, preferencesManager.headsetTriplePressAction, preferencesManager.headsetLongPressAction) { d, t, l -> Triple(d, t, l) },
         combine(
@@ -146,7 +148,7 @@ class SettingsViewModel @Inject constructor(
             preferencesManager.bedtimeStartMinute,
             preferencesManager.bedtimeDurationMinutes
         ) { bt, bed, h, m, dur -> listOf(bt, bed, h, m, dur) }
-    ) { (skip, autoRewind), (shake, compact), (autoMark, autoPlayNext), headsetTriple, bedtimeList ->
+    ) { (skip, autoRewind), (shake, compact, haptics), (autoMark, autoPlayNext), headsetTriple, bedtimeList ->
         val bt = bedtimeList[0] as Boolean
         val bed = bedtimeList[1] as Boolean
         val h = bedtimeList[2] as Int
@@ -169,7 +171,8 @@ class SettingsViewModel @Inject constructor(
             bedtimeDuration = dur,
             bedtimeDays = setOf("1", "2", "3", "4", "5", "6", "7"),
             bedtimeAutoStart = true,
-            playerGestures = true
+            playerGestures = true,
+            haptics = haptics
         )
     }
 
@@ -228,6 +231,7 @@ class SettingsViewModel @Inject constructor(
             bedtimeDays = listening.bedtimeDays,
             bedtimeAutoStart = listening.bedtimeAutoStart,
             playerGesturesEnabled = listening.playerGestures,
+            hapticFeedbackEnabled = listening.haptics,
             libraryFolders = folders,
             backupFolderUri = folder,
             lastBackupTimestamp = lastBackup,
@@ -326,6 +330,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPlayerGesturesEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setPlayerGesturesEnabled(enabled) }
+    }
+
+    fun setHapticFeedbackEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setHapticFeedbackEnabled(enabled) }
     }
 
     fun rescanLibrary() {

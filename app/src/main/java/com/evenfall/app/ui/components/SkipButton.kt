@@ -62,6 +62,8 @@ fun CircularSkipButton(
     containerColor: Color = Color(0xFFF7D171),
     contentColor: Color = Color(0xFF5A350D)
 ) {
+    val haptics = com.evenfall.app.ui.util.rememberEvenfallHaptics()
+
     Box(
         modifier = modifier
             .size(size)
@@ -74,7 +76,12 @@ fun CircularSkipButton(
                 onClickLabel = if (isForward) "Forward $seconds seconds" else "Rewind $seconds seconds",
                 onLongClickLabel = if (onLongClick != null) "Adjust skip duration" else null,
                 onClick = onClick,
-                onLongClick = onLongClick
+                onLongClick = if (onLongClick != null) {
+                    {
+                        haptics.longPressPopup()
+                        onLongClick()
+                    }
+                } else null
             ),
         contentAlignment = Alignment.Center
     ) {

@@ -67,6 +67,7 @@ fun MiniPlayer(
     val bookColors = remember(book.title, isDark) {
         PlayerThemeExtractor.getColorsForBook(book.title, isDark)
     }
+    val haptics = com.evenfall.app.ui.util.rememberEvenfallHaptics()
 
     var totalDragX by remember { mutableFloatStateOf(0f) }
     var totalDragY by remember { mutableFloatStateOf(0f) }
@@ -177,7 +178,10 @@ fun MiniPlayer(
 
                 // Play / Pause (48dp touch target)
                 IconButton(
-                    onClick = onTogglePlayPause,
+                    onClick = {
+                        haptics.playPause()
+                        onTogglePlayPause()
+                    },
                     modifier = Modifier
                         .size(48.dp)
                         .testTag("mini_player_play_pause")

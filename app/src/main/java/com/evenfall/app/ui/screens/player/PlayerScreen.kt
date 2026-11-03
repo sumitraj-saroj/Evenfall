@@ -131,6 +131,7 @@ fun PlayerScreen(
     val allCollections by viewModel.allCollections.collectAsState(initial = emptyList())
     var currentBookCollectionIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var editingChapter by remember { mutableStateOf<ChapterEntity?>(null) }
+    val haptics = com.evenfall.app.ui.util.rememberEvenfallHaptics()
 
     // Auto-dismiss undo seek chip after 8 seconds or when tapped
     var showUndoChip by remember { mutableStateOf(false) }
@@ -228,6 +229,7 @@ fun PlayerScreen(
                                     leadingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null) },
                                     onClick = {
                                         viewModel.quickSaveBookmark()
+                                        haptics.bookmarkSaved()
                                         showOverflowMenu = false
                                     }
                                 )
@@ -346,7 +348,10 @@ fun PlayerScreen(
                             showCover = false,
                             isLandscape = true,
                             onOpenChapterSheet = { showChapterSheet = true },
-                            onSeekToFraction = viewModel::seekToFraction,
+                            onSeekToFraction = { fraction ->
+                                haptics.chapterSnapped()
+                                viewModel.seekToFraction(fraction)
+                            },
                             onUndoSeek = {
                                 viewModel.undoSeek()
                                 showUndoChip = false
@@ -397,7 +402,10 @@ fun PlayerScreen(
                         currentChapterIdx = currentChapterIdx,
                         showUndoChip = showUndoChip,
                         onOpenChapterSheet = { showChapterSheet = true },
-                        onSeekToFraction = viewModel::seekToFraction,
+                        onSeekToFraction = { fraction ->
+                            haptics.chapterSnapped()
+                            viewModel.seekToFraction(fraction)
+                        },
                         onUndoSeek = {
                             viewModel.undoSeek()
                             showUndoChip = false
@@ -888,6 +896,7 @@ fun PlayerScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     viewModel.startSleepTimer(min)
+                                    haptics.sleepTimerSet()
                                     showSleepSheet = false
                                 }
                                 .padding(vertical = 4.dp)
@@ -907,6 +916,7 @@ fun PlayerScreen(
                             .fillMaxWidth()
                             .clickable {
                                 viewModel.startSleepTimerEndOfChapter()
+                                haptics.sleepTimerSet()
                                 showSleepSheet = false
                             }
                             .padding(vertical = 4.dp)

@@ -54,6 +54,8 @@ fun MorphingPlayPauseButton(
         CookieShape(lobes = 12, depth = 0.14f * (1f - morphProgress))
     }
 
+    val haptics = com.evenfall.app.ui.util.rememberEvenfallHaptics()
+
     Box(
         modifier = modifier
             .size(size)
@@ -64,7 +66,10 @@ fun MorphingPlayPauseButton(
                 indication = ripple(bounded = true),
                 role = Role.Button,
                 onClickLabel = if (isPlaying) "Pause" else "Play",
-                onClick = onClick
+                onClick = {
+                    haptics.playPause()
+                    onClick()
+                }
             ),
         contentAlignment = Alignment.Center
     ) {
