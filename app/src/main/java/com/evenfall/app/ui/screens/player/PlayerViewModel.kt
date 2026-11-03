@@ -216,4 +216,7 @@ class PlayerViewModel @Inject constructor(
             }
         }
     }
+
+    fun dismissPlaybackError() = playbackManager.dismissPlaybackError()
+    fun retryPlayback() = playbackManager.retryPlayback()
 }

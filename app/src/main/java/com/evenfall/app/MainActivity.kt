@@ -186,6 +186,9 @@ fun EvenfallAppNav(
                     onOpenStats = {
                         navController.navigate(Screen.Stats.route)
                     },
+                    onOpenScanLog = {
+                        navController.navigate(Screen.ScanLog.route)
+                    },
                     hasMiniPlayer = showMiniPlayer
                 )
             }

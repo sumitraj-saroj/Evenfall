@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.R
+import com.evenfall.app.ui.components.EmptyStateView
 import com.evenfall.app.data.db.entity.ScanIssueEntity
 import com.evenfall.app.data.db.entity.ScanIssueReason
 import com.evenfall.app.ui.components.SparkleDecorations
@@ -120,47 +121,14 @@ fun ScanLogScreen(
             }
         ) { paddingValues ->
             if (issues.isEmpty()) {
-                Box(
+                EmptyStateView(
+                    illustrationRes = R.drawable.ic_empty_library,
+                    title = "Clean scan",
+                    message = stringResource(R.string.no_scan_issues),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(72.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Clean scan",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = SerifFont
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = stringResource(R.string.no_scan_issues),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier

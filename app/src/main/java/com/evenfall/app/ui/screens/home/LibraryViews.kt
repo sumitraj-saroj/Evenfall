@@ -38,6 +38,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import com.evenfall.app.R
+import com.evenfall.app.ui.components.EmptyStateView
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evenfall.app.R
 import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.theme.CookieShape
@@ -70,18 +71,12 @@ fun BookCoverGridContent(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     if (books.isEmpty()) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stringResource(R.string.no_matching_books),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp
-            )
-        }
+        EmptyStateView(
+            illustrationRes = R.drawable.ic_empty_library,
+            title = stringResource(R.string.empty_library_title),
+            message = stringResource(R.string.empty_library_desc),
+            modifier = modifier.fillMaxSize().padding(contentPadding)
+        )
         return
     }
 

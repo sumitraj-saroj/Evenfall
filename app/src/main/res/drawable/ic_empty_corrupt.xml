@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Subtle glow circle -->
+    <path
+        android:fillColor="#F59E0B"
+        android:fillAlpha="0.12"
+        android:pathData="M60,60m-50,0a50,50 0 1,1 100,0a50,50 0 1,1 -100,0" />
+
+    <!-- Audio Disc -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:pathData="M60,60m-30,0a30,30 0 1,1 60,0a30,30 0 1,1 -60,0" />
+    <path
+        android:strokeColor="#FDE68A"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M60,60m-18,0a18,18 0 1,1 36,0a18,18 0 1,1 -36,0" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M60,60m-6,0a6,6 0 1,1 12,0a6,6 0 1,1 -12,0" />
+
+    <!-- Alert / Skipped Badge on Top Right of Disc -->
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M80,30 C74.5,30 70,34.5 70,40 C70,45.5 74.5,50 80,50 C85.5,50 90,45.5 90,40 C90,34.5 85.5,30 80,30 Z" />
+    <!-- Alert exclamation -->
+    <path
+        android:fillColor="#FFFBEB"
+        android:pathData="M79,34 L81,34 L80.5,41 L79.5,41 Z M79,43 L81,43 L81,45 L79,45 Z" />
+</vector>

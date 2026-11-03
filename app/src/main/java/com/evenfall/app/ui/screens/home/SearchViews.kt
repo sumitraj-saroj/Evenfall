@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.evenfall.app.ui.components.EmptyStateView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -134,51 +135,18 @@ fun SearchResultsGroupedView(
     onOpenBook: (BookEntity) -> Unit,
     onOpenBookmark: (BookmarkSearchResult) -> Unit,
     onOpenChapter: (ChapterSearchResult) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClearSearch: (() -> Unit)? = null
 ) {
     if (results.totalCount == 0) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.SearchOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.search_no_results, searchQuery),
-                    fontFamily = SerifFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Try searching for a book title, author, series, chapter name, or note.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
-        }
+        EmptyStateView(
+            illustrationRes = R.drawable.ic_empty_search,
+            title = stringResource(R.string.empty_search_title),
+            message = stringResource(R.string.search_no_results, searchQuery),
+            actionLabel = stringResource(R.string.empty_search_action),
+            onAction = onClearSearch,
+            modifier = modifier.fillMaxSize()
+        )
     } else {
         LazyColumn(
             modifier = modifier

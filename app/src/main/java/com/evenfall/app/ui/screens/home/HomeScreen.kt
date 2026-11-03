@@ -99,6 +99,7 @@ import com.evenfall.app.data.db.entity.BookEntity
 import com.evenfall.app.ui.components.AddToCollectionDialog
 import com.evenfall.app.ui.components.BookCoverArt
 import com.evenfall.app.ui.components.EditBookDetailsDialog
+import com.evenfall.app.ui.components.EmptyStateView
 import com.evenfall.app.ui.components.SortFilterBottomSheet
 import com.evenfall.app.ui.components.SparkleDecorations
 import com.evenfall.app.ui.theme.CookieShape
@@ -114,6 +115,7 @@ fun HomeScreen(
     onOpenFixLibrary: () -> Unit = {},
     onOpenManageCollections: () -> Unit = {},
     onOpenStats: () -> Unit = {},
+    onOpenScanLog: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     hasMiniPlayer: Boolean = false
 ) {
@@ -539,6 +541,7 @@ fun HomeScreen(
                             viewModel.openSearchResultChapter(ch)
                             handleIdClick(ch.chapter.bookId)
                         },
+                        onClearSearch = viewModel::clearSearchQuery,
                         modifier = Modifier.padding(bottom = bottomPadding)
                     )
                 } else if (uiState.isSearchFocused && uiState.recentSearches.isNotEmpty()) {
@@ -610,7 +613,7 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.spacedBy(18.dp)
                             ) {
                                 // Lost-Folder Warning Banner
-                                if (uiState.hasUnavailableBooks) {
+                                if (uiState.hasUnavailableBooks && !uiState.allBooksUnavailable) {
                                     item {
                                         Surface(
                                             shape = RoundedCornerShape(16.dp),
@@ -654,6 +657,80 @@ fun HomeScreen(
                                                 }
                                             }
                                         }
+                                    }
+                                }
+
+                                if (uiState.scanIssueCount > 0) {
+                                    item {
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = stringResource(R.string.skipped_corrupt_files_notice),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                TextButton(
+                                                    onClick = onOpenScanLog,
+                                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                    )
+                                                ) {
+                                                    Text(stringResource(R.string.view_scan_log), fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (uiState.isLibraryEmpty) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_library,
+                                            title = stringResource(R.string.empty_library_title),
+                                            message = stringResource(R.string.empty_library_desc),
+                                            actionLabel = stringResource(R.string.empty_library_action),
+                                            onAction = onOpenAddFolder,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
+                                    }
+                                } else if (uiState.allBooksUnavailable) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_permission,
+                                            title = stringResource(R.string.empty_permission_title),
+                                            message = stringResource(R.string.empty_permission_desc),
+                                            actionLabel = stringResource(R.string.empty_permission_action),
+                                            onAction = onOpenFixLibrary,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
+                                    }
+                                } else if (uiState.filteredBooksList.isEmpty()) {
+                                    item {
+                                        EmptyStateView(
+                                            illustrationRes = R.drawable.ic_empty_search,
+                                            title = stringResource(R.string.empty_search_title),
+                                            message = stringResource(R.string.empty_search_desc),
+                                            actionLabel = stringResource(R.string.clear_filter),
+                                            onAction = viewModel::clearFilters,
+                                            modifier = Modifier.padding(top = 28.dp)
+                                        )
                                     }
                                 }
 

@@ -51,6 +51,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -1064,6 +1067,45 @@ fun PlayerScreen(
                     viewModel.createCollection(name)
                 },
                 onDismiss = { showAddToCollectionDialog = false }
+            )
+        }
+
+        if (state.isPlaybackError) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissPlaybackError() },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = {
+                    Text(
+                        text = stringResource(R.string.error_playback_title),
+                        fontFamily = SerifFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = state.playbackErrorMessage ?: stringResource(R.string.error_playback_file_missing_desc),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.retryPlayback() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(stringResource(R.string.error_playback_retry))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.dismissPlaybackError() }) {
+                        Text(stringResource(R.string.error_playback_dismiss))
+                    }
+                }
             )
         }
     }

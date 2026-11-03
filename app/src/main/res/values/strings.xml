@@ -356,7 +356,14 @@
     <string name="empty_permission_desc">Evenfall needs permission to read audio files from your chosen folder.</string>
     <string name="empty_permission_action">Grant access</string>
     <string name="skipped_corrupt_files_notice">Skipped, see scan log</string>
+    <string name="view_scan_log">View scan log</string>
+    <string name="empty_search_action">Clear search</string>
+    <string name="error_playback_title">Playback paused</string>
     <string name="error_playback_file_missing">The audio file for this chapter could not be found.</string>
+    <string name="error_playback_file_missing_desc">The audio file for this chapter could not be accessed. It may have been moved, renamed, or on a detached storage.</string>
+    <string name="error_playback_retry">Retry</string>
+    <string name="error_playback_locate">Locate file</string>
+    <string name="error_playback_dismiss">Dismiss</string>
 
     <!-- First-Run Hints -->
     <string name="hint_long_press_skip">Long-press skip to change the amount</string>

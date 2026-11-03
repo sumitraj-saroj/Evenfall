@@ -78,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.evenfall.app.ui.components.EmptyStateView
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.evenfall.app.R
@@ -388,84 +389,104 @@ fun BookmarksHistoryScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Group bookmarks by chapter
-                    val bookmarkChapters = uiState.bookmarks.groupBy { it.chapterIndex }
-                    val allDisplayChapterIndices = (bookmarkChapters.keys + curIdx).sorted()
+                    if (uiState.bookmarks.isEmpty()) {
+                        EmptyStateView(
+                            illustrationRes = R.drawable.ic_empty_bookmarks,
+                            title = stringResource(R.string.empty_bookmarks_title),
+                            message = stringResource(R.string.empty_bookmarks_desc),
+                            actionLabel = stringResource(R.string.save_this_moment),
+                            onAction = { showSaveDialog = true },
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                    } else {
+                        // Group bookmarks by chapter
+                        val bookmarkChapters = uiState.bookmarks.groupBy { it.chapterIndex }
+                        val allDisplayChapterIndices = (bookmarkChapters.keys + curIdx).sorted()
 
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 90.dp)
-                    ) {
-                        allDisplayChapterIndices.forEach { chapterIdx ->
-                            val bList = bookmarkChapters[chapterIdx] ?: emptyList()
-                            val chapterName = bList.firstOrNull()?.chapterTitle
-                                ?: uiState.chapters.getOrNull(chapterIdx)?.title
-                                ?: "Chapter ${chapterIdx + 1}"
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 90.dp)
+                        ) {
+                            allDisplayChapterIndices.forEach { chapterIdx ->
+                                val bList = bookmarkChapters[chapterIdx] ?: emptyList()
+                                val chapterName = bList.firstOrNull()?.chapterTitle
+                                    ?: uiState.chapters.getOrNull(chapterIdx)?.title
+                                    ?: "Chapter ${chapterIdx + 1}"
 
-                            item {
-                                Text(
-                                    text = "Chapter ${chapterIdx + 1} · $chapterName",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
-                                )
-                            }
-
-                            // Show "You are here" card if current position is in this chapter
-                            if (chapterIdx == curIdx) {
                                 item {
-                                    YouAreHereCard(
-                                        positionMs = uiState.currentPositionMs,
-                                        progressPercent = if (book != null && book.totalDurationMs > 0) {
-                                            ((book.currentPositionMs.toFloat() / book.totalDurationMs) * 100).toInt()
-                                        } else 0
+                                    Text(
+                                        text = "Chapter ${chapterIdx + 1} · $chapterName",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
                                     )
                                 }
-                            }
 
-                            items(bList) { bookmark ->
-                                BookmarkRowCard(
-                                    bookmark = bookmark,
-                                    isDark = isDark,
-                                    onClick = { viewModel.jumpToBookmark(bookmark) },
-                                    onDelete = { viewModel.deleteBookmark(bookmark) }
-                                )
+                                // Show "You are here" card if current position is in this chapter
+                                if (chapterIdx == curIdx) {
+                                    item {
+                                        YouAreHereCard(
+                                            positionMs = uiState.currentPositionMs,
+                                            progressPercent = if (book != null && book.totalDurationMs > 0) {
+                                                ((book.currentPositionMs.toFloat() / book.totalDurationMs) * 100).toInt()
+                                            } else 0
+                                        )
+                                    }
+                                }
+
+                                items(bList) { bookmark ->
+                                    BookmarkRowCard(
+                                        bookmark = bookmark,
+                                        isDark = isDark,
+                                        onClick = { viewModel.jumpToBookmark(bookmark) },
+                                        onDelete = { viewModel.deleteBookmark(bookmark) }
+                                    )
+                                }
                             }
                         }
                     }
                 } else {
                     // History Tab (matching Image 5)
-                    val groupedHistory = uiState.historyEvents.groupBy { TimeUtils.formatHistoryTimeGroup(it.timestamp) }
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                        contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 40.dp)
-                    ) {
-                        groupedHistory.forEach { (timeGroup, events) ->
-                            item {
-                                Text(
-                                    text = timeGroup,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-                                )
-                            }
+                    if (uiState.historyEvents.isEmpty()) {
+                        EmptyStateView(
+                            illustrationRes = R.drawable.ic_empty_history,
+                            title = stringResource(R.string.empty_history_title),
+                            message = stringResource(R.string.empty_history_desc),
+                            modifier = Modifier.padding(top = 28.dp)
+                        )
+                    } else {
+                        val groupedHistory = uiState.historyEvents.groupBy { TimeUtils.formatHistoryTimeGroup(it.timestamp) }
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            contentPadding = PaddingValues(bottom = if (hasMiniPlayer) 100.dp else 40.dp)
+                        ) {
+                            groupedHistory.forEach { (timeGroup, events) ->
+                                item {
+                                    Text(
+                                        text = timeGroup,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                                    )
+                                }
 
-                            item {
-                                Surface(
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        events.forEachIndexed { idx, event ->
-                                            HistoryEventRow(
-                                                event = event,
-                                                isDark = isDark,
-                                                isLast = idx == events.size - 1,
-                                                onJumpToPosition = { viewModel.jumpToHistory(event) }
-                                            )
+                                item {
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = if (isDark) Color(0xFF162544).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            events.forEachIndexed { idx, event ->
+                                                HistoryEventRow(
+                                                    event = event,
+                                                    isDark = isDark,
+                                                    isLast = idx == events.size - 1,
+                                                    onJumpToPosition = { viewModel.jumpToHistory(event) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
