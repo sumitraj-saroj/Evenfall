@@ -38,8 +38,25 @@ data class BookEntity(
     val seriesOrderOverride: Float? = null,
     val coverOverrideUri: String? = null,
     val finishedAt: Long? = null,
-    val isUnavailable: Boolean = false
+    val isUnavailable: Boolean = false,
+    val speedOverride: Float? = null,
+    val skipBackSecondsOverride: Int? = null,
+    val skipForwardSecondsOverride: Int? = null,
+    val silenceSkippingOverride: Boolean? = null,
+    val volumeBoostOverride: Float? = null,
+    val voiceBoostPresetOverride: String? = null,
+    val monoDownmixOverride: Boolean? = null,
+    val loudnessNormalizationOverride: Boolean? = null
 ) {
+    val hasPlaybackOverrides: Boolean
+        get() = speedOverride != null ||
+                skipBackSecondsOverride != null ||
+                skipForwardSecondsOverride != null ||
+                silenceSkippingOverride != null ||
+                volumeBoostOverride != null ||
+                voiceBoostPresetOverride != null ||
+                monoDownmixOverride != null ||
+                loudnessNormalizationOverride != null
     val displayTitle: String
         get() = titleOverride?.takeIf { it.isNotBlank() } ?: title
 

@@ -91,4 +91,33 @@ class RoomMigrationTest {
         assertTrue(executedSql.any { it.contains("CREATE TABLE IF NOT EXISTS `recent_searches`") })
         assertTrue(executedSql.any { it.contains("CREATE VIRTUAL TABLE IF NOT EXISTS `search_index_fts` USING `FTS4`") })
     }
+
+    @Test
+    fun testMigration4To5AddsPlaybackOverrides() {
+        val executedSql = mutableListOf<String>()
+        val db = Proxy.newProxyInstance(
+            SupportSQLiteDatabase::class.java.classLoader,
+            arrayOf(SupportSQLiteDatabase::class.java)
+        ) { _, method, args ->
+            if (method.name == "execSQL" && args != null && args.isNotEmpty()) {
+                executedSql.add(args[0] as String)
+            }
+            null
+        } as SupportSQLiteDatabase
+
+        EvenfallDatabase.MIGRATION_4_5.migrate(db)
+
+        assertEquals(4, EvenfallDatabase.MIGRATION_4_5.startVersion)
+        assertEquals(5, EvenfallDatabase.MIGRATION_4_5.endVersion)
+
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `speedOverride` REAL DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `skipBackSecondsOverride` INTEGER DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `skipForwardSecondsOverride` INTEGER DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `silenceSkippingOverride` INTEGER DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `volumeBoostOverride` REAL DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `voiceBoostPresetOverride` TEXT DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `monoDownmixOverride` INTEGER DEFAULT NULL"))
+        assertTrue(executedSql.contains("ALTER TABLE `books` ADD COLUMN `loudnessNormalizationOverride` INTEGER DEFAULT NULL"))
+        assertEquals(8, executedSql.size)
+    }
 }

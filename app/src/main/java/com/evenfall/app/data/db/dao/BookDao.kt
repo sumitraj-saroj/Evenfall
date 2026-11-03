@@ -102,6 +102,68 @@ interface BookDao {
     @Query("UPDATE books SET isFinished = :finished, finishedAt = :finishedAt WHERE id = :id")
     suspend fun updateFinishedStatus(id: Long, finished: Boolean, finishedAt: Long?)
 
+    @Query("""
+        UPDATE books SET 
+            speedOverride = :speed,
+            skipBackSecondsOverride = :skipBack,
+            skipForwardSecondsOverride = :skipForward,
+            silenceSkippingOverride = :silenceSkipping,
+            volumeBoostOverride = :volumeBoost,
+            voiceBoostPresetOverride = :voiceBoostPreset,
+            monoDownmixOverride = :monoDownmix,
+            loudnessNormalizationOverride = :loudnessNormalization
+        WHERE id = :id
+    """)
+    suspend fun updatePlaybackOverrides(
+        id: Long,
+        speed: Float?,
+        skipBack: Int?,
+        skipForward: Int?,
+        silenceSkipping: Boolean?,
+        volumeBoost: Float?,
+        voiceBoostPreset: String? = null,
+        monoDownmix: Boolean? = null,
+        loudnessNormalization: Boolean? = null
+    )
+
+    @Query("""
+        UPDATE books SET 
+            speedOverride = NULL,
+            skipBackSecondsOverride = NULL,
+            skipForwardSecondsOverride = NULL,
+            silenceSkippingOverride = NULL,
+            volumeBoostOverride = NULL,
+            voiceBoostPresetOverride = NULL,
+            monoDownmixOverride = NULL,
+            loudnessNormalizationOverride = NULL
+        WHERE id = :id
+    """)
+    suspend fun resetPlaybackOverrides(id: Long)
+
+    @Query("UPDATE books SET speedOverride = :speed WHERE id = :id")
+    suspend fun updateSpeedOverride(id: Long, speed: Float?)
+
+    @Query("UPDATE books SET skipBackSecondsOverride = :seconds WHERE id = :id")
+    suspend fun updateSkipBackOverride(id: Long, seconds: Int?)
+
+    @Query("UPDATE books SET skipForwardSecondsOverride = :seconds WHERE id = :id")
+    suspend fun updateSkipForwardOverride(id: Long, seconds: Int?)
+
+    @Query("UPDATE books SET silenceSkippingOverride = :enabled WHERE id = :id")
+    suspend fun updateSilenceSkippingOverride(id: Long, enabled: Boolean?)
+
+    @Query("UPDATE books SET volumeBoostOverride = :level WHERE id = :id")
+    suspend fun updateVolumeBoostOverride(id: Long, level: Float?)
+
+    @Query("UPDATE books SET voiceBoostPresetOverride = :preset WHERE id = :id")
+    suspend fun updateVoiceBoostPresetOverride(id: Long, preset: String?)
+
+    @Query("UPDATE books SET monoDownmixOverride = :enabled WHERE id = :id")
+    suspend fun updateMonoDownmixOverride(id: Long, enabled: Boolean?)
+
+    @Query("UPDATE books SET loudnessNormalizationOverride = :enabled WHERE id = :id")
+    suspend fun updateLoudnessNormalizationOverride(id: Long, enabled: Boolean?)
+
     @Query("UPDATE books SET isUnavailable = :isUnavailable WHERE id = :id")
     suspend fun updateUnavailableStatus(id: Long, isUnavailable: Boolean)
 

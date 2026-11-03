@@ -32,7 +32,8 @@ object DatabaseModule {
             .addMigrations(
                 EvenfallDatabase.MIGRATION_1_2,
                 EvenfallDatabase.MIGRATION_2_3,
-                EvenfallDatabase.MIGRATION_3_4
+                EvenfallDatabase.MIGRATION_3_4,
+                EvenfallDatabase.MIGRATION_4_5
             )
             .build()
     }

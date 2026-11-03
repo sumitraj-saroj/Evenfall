@@ -33,7 +33,7 @@ import com.evenfall.app.data.db.entity.SearchIndexFtsEntity
         RecentSearchEntity::class,
         SearchIndexFtsEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class EvenfallDatabase : RoomDatabase() {
@@ -125,6 +125,19 @@ abstract class EvenfallDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `speedOverride` REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `skipBackSecondsOverride` INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `skipForwardSecondsOverride` INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `silenceSkippingOverride` INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `volumeBoostOverride` REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `voiceBoostPresetOverride` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `monoDownmixOverride` INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `loudnessNormalizationOverride` INTEGER DEFAULT NULL")
             }
         }
     }
